@@ -1,0 +1,1750 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#1a1614" />
+<title>Финансы V&A Light Studio · учёт заказов, оплат и расходов (BYN)</title>
+<meta name="description" content="Автономная таблица учёта: заказы, предоплаты, доставка Европочтой и Белпочтой, расходы и чистая касса по месяцам. Один файл, работает без сервера." />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  if (window.tailwind) {
+    tailwind.config = {
+      corePlugins: { preflight: false },
+      theme: {
+        extend: {
+          colors: {
+            ink: { 900: "#1a1614", 800: "#241e1b", 700: "#2e2723", 600: "#3a312c" },
+            line: "#4e4038", paper: "#f6efe2", cash: "#d4a373", debt: "#d16051",
+            prepay: "#e09f3e", post: "#7fa69e", ads: "#c46d84", violet: "#9c7a8e",
+            muted: "#a8998c", bright: "#fcf9f2"
+          }
+        }
+      }
+    };
+  }
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%23241e1b'/%3E%3Cpath d='M24 7 41 24 24 41 7 24Z' fill='none' stroke='%23d4a373' stroke-width='3'/%3E%3Cpath d='M24 19 29 24 24 29 19 24Z' fill='%23d16051'/%3E%3C/svg%3E" />
+<style>
+:root{
+  --ink-900:#1a1614; --ink-800:#241e1b; --ink-700:#2e2723; --ink-600:#3a312c; --ink-500:#473c36;
+  --line:#4e4038; --line-soft:rgba(78,64,56,.6);
+  --paper:#f6efe2;
+  --cash:#d4a373; --cash-deep:#b08456; --cash-lite:#ecc49a;
+  --debt:#d16051; --prepay:#e09f3e; --post:#7fa69e; --ads:#c46d84; --violet:#9c7a8e; --cyan:#a3b19b;
+  --muted:#a8998c; --dim:#7a6e64; --bright:#fcf9f2;
+  --display:"Space Grotesk","Segoe UI",system-ui,sans-serif;
+  --body:"Manrope","Segoe UI",system-ui,sans-serif;
+  --r:16px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;min-height:100%}
+body{
+  font-family:var(--body); color:var(--bright); background-color:var(--ink-900);
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  background-image:
+    radial-gradient(900px 620px at 6% -12%, rgba(224,159,62,.15), transparent 60%),
+    radial-gradient(760px 520px at 102% -4%, rgba(209,96,81,.12), transparent 62%),
+    radial-gradient(760px 700px at 62% 112%, rgba(196,109,132,.08), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23d4a373' stroke-width='1' stroke-opacity='0.12'%3E%3Cpath d='M36 5 L67 36 L36 67 L5 36 Z'/%3E%3Cpath d='M36 19 L53 36 L36 53 L19 36 Z'/%3E%3Cpath d='M36 32 L40 36 L36 40 L32 36 Z'/%3E%3C/g%3E%3C/svg%3E");
+  background-attachment:fixed;
+}
+body::before{
+  content:""; position:fixed; inset:-25%; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(closest-side, rgba(224,159,62,.1), transparent) 18% 26%/46% 46% no-repeat,
+    radial-gradient(closest-side, rgba(209,96,81,.08), transparent) 82% 62%/52% 52% no-repeat;
+  animation:aurora 28s ease-in-out infinite alternate;
+}
+@keyframes aurora{0%{transform:translate3d(-2%,-1%,0) scale(1)}50%{transform:translate3d(3%,2%,0) scale(1.08)}100%{transform:translate3d(-1%,3%,0) scale(1.03)}}
+#root{position:relative; z-index:1}
+h1,h2,h3,h4{margin:0; font-family:var(--display); letter-spacing:-.02em}
+p{margin:0}
+button,input,select,textarea{font:inherit; color:inherit}
+a{color:inherit}
+.num{font-family:var(--display); font-variant-numeric:tabular-nums; letter-spacing:-.02em}
+.trunc{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+*{scrollbar-width:thin; scrollbar-color:#3a312c transparent}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:rgba(26,22,20,.55); border-radius:999px}
+*::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--cash),var(--cash-deep)); border-radius:999px; border:2px solid rgba(26,22,20,.9)}
+*::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,var(--cash-lite),var(--cash))}
+
+.panel{
+  position:relative; border-radius:20px; border:1px solid var(--line);
+  background:linear-gradient(180deg, rgba(58,49,44,.86), rgba(26,22,20,.92));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 24px 60px -32px rgba(0,0,0,.95);
+}
+.panel-flush{border-radius:14px; border:1px solid var(--line-soft); background:rgba(26,22,20,.55)}
+.hero{
+  border-radius:20px; padding:20px;
+  background:linear-gradient(135deg, rgba(209,140,106,.96), rgba(176,107,72,.92) 55%, rgba(122,68,40,.96));
+  box-shadow:inset 0 0 0 1px rgba(236,196,154,.35), 0 26px 60px -26px rgba(212,163,115,.5);
+}
+.hdr{position:sticky; top:0; z-index:50; border-bottom:1px solid rgba(78,64,56,.85); background:rgba(26,22,20,.86); backdrop-filter:blur(16px)}
+.hdr-in{max-width:1500px; margin:0 auto; padding:10px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+.brand{display:flex; align-items:center; gap:10px; margin-right:4px}
+.brand h1{font-size:19px; line-height:1; font-weight:700}
+.brand small{display:block; font-size:11px; color:var(--muted); margin-top:3px}
+.monthnav{display:flex; align-items:center; gap:2px; border:1px solid var(--line); background:var(--ink-800); border-radius:12px; padding:3px}
+.monthnav select{background:transparent; border:0; outline:none; font-weight:700; font-family:var(--display); font-size:14px; padding:2px 4px; cursor:pointer}
+.pill{display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); background:var(--ink-800); border-radius:999px; padding:6px 12px; font-size:11px; color:var(--muted); white-space:nowrap}
+.spacer{margin-left:auto}
+.row{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:7px; border-radius:12px; padding:9px 14px;
+  font-size:13.5px; font-weight:700; border:1px solid transparent; cursor:pointer; white-space:nowrap;
+  transition:transform .12s ease, filter .16s ease, background .16s ease, border-color .16s ease; background:none}
+.btn:active{transform:translateY(1px) scale(.99)}
+.btn:disabled{opacity:.5; cursor:not-allowed}
+.btn:focus-visible{outline:2px solid var(--cash); outline-offset:2px}
+.btn-primary{background:linear-gradient(135deg,var(--cash),var(--cash-deep)); color:#1a1614; box-shadow:0 12px 30px -14px rgba(212,163,115,.9)}
+.btn-primary:hover:not(:disabled){filter:brightness(1.1)}
+.btn-ghost{background:rgba(58,49,44,.7); border-color:var(--line); color:var(--bright)}
+.btn-ghost:hover:not(:disabled){background:rgba(71,60,54,.9); border-color:#5c4f45}
+.btn-danger{background:rgba(209,96,81,.14); border-color:rgba(209,96,81,.5); color:#f0a296}
+.btn-danger:hover:not(:disabled){background:rgba(209,96,81,.24)}
+.btn-sm{padding:6px 9px; font-size:12px; border-radius:10px}
+.btn-ico{padding:7px; border-radius:10px}
+.chip{border-radius:999px; padding:5px 12px; font-size:12px; font-weight:700; border:1px solid var(--line);
+  background:rgba(26,22,20,.7); color:var(--muted); cursor:pointer; white-space:nowrap; transition:all .16s ease}
+.chip:hover{color:var(--bright); border-color:#5c4f45}
+.chip[data-on="true"]{background:linear-gradient(135deg, rgba(212,163,115,.26), rgba(212,163,115,.08)); border-color:rgba(212,163,115,.7); color:#fce4b8}
+.fld{width:100%; border-radius:12px; border:1px solid var(--line); background:rgba(26,22,20,.72);
+  padding:9px 12px; font-size:14px; color:var(--bright); outline:none;
+  transition:border-color .16s, box-shadow .16s, background .16s}
+.fld::placeholder{color:var(--dim)}
+.fld:focus{border-color:var(--cash); box-shadow:0 0 0 3px rgba(212,163,115,.2); background:rgba(26,22,20,.95)}
+.fld:disabled{opacity:.45; cursor:not-allowed}
+select.fld option{background:#241e1b; color:#fcf9f2}
+input[type="date"]::-webkit-calendar-picker-indicator,input[type="month"]::-webkit-calendar-picker-indicator{filter:invert(.75); cursor:pointer}
+input[type="checkbox"]{accent-color:var(--cash); width:16px; height:16px; cursor:pointer}
+.lbl{display:block; margin-bottom:5px; font-size:11px; font-weight:600; color:var(--muted)}
+
+.wrap{max-width:1500px; margin:0 auto; padding:18px 16px 40px; display:grid; gap:18px; grid-template-columns:1fr}
+@media(min-width:1120px){ .wrap{grid-template-columns:250px minmax(0,1fr); align-items:start} .rail{position:sticky; top:78px} }
+.rail{display:flex; flex-direction:column; gap:12px; min-width:0}
+.main{display:flex; flex-direction:column; gap:18px; min-width:0}
+.kpi-grid{display:grid; gap:12px; grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(min-width:700px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(min-width:1120px){.kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.kpi-grid .hero{grid-column:span 2}
+.charts{display:grid; gap:12px; grid-template-columns:1fr}
+@media(min-width:900px){.charts{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.form-grid{display:grid; gap:12px; grid-template-columns:1fr}
+@media(min-width:620px){.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:1000px){.form-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.span2{grid-column:span 1}
+@media(min-width:620px){.span2{grid-column:span 2}}
+.span4{grid-column:1/-1}
+.only-wide{display:none} .only-narrow{display:block} .wide-inline{display:none}
+@media(min-width:1000px){.only-wide{display:block} .only-narrow{display:none} .wide-inline{display:inline}}
+
+.tbl{width:100%; min-width:1000px; border-collapse:collapse; text-align:left; font-size:14px}
+.tbl th{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:700; padding:10px 12px 10px 0; border-bottom:1px solid var(--line)}
+.tbl th:first-child,.tbl td:first-child{padding-left:16px}
+.tbl td{padding:11px 12px 11px 0; border-bottom:1px solid var(--line-soft); vertical-align:middle}
+.tbl tbody tr{transition:background .14s; cursor:pointer;}
+.tbl tbody tr:hover{background:rgba(71,60,54,.42)}
+.tbl tfoot td{border:0; padding-top:12px; font-weight:700}
+.right{text-align:right}
+.scrollx{overflow-x:auto}
+.th-btn{display:inline-flex; align-items:center; gap:5px; background:none; border:0; cursor:pointer; color:inherit; font:inherit; text-transform:uppercase; letter-spacing:.1em; padding:0}
+.th-btn:hover{color:var(--bright)}
+.th-btn[data-on="true"]{color:var(--cash)}
+
+.badge{display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:4px 10px; font-size:11px; font-weight:700; white-space:nowrap}
+.sect{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 16px; border-bottom:1px solid var(--line)}
+.sect h3{font-size:18px; font-weight:700}
+.tag{border-radius:999px; background:var(--ink-700); color:var(--muted); font-size:11px; padding:2px 9px; font-family:var(--display)}
+.muted{color:var(--muted)} .dimtxt{color:var(--dim)}
+.stack{display:flex; flex-direction:column}
+.months{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; list-style:none; margin:0; padding-left:0}
+@media(min-width:1120px){.months{flex-direction:column; overflow-y:auto; max-height:56vh}}
+.months li{flex:0 0 auto}
+@media(min-width:1120px){.months li{flex:1 1 auto}}
+.mbtn{width:100%; text-align:left; border-radius:12px; border:1px solid transparent; background:none; padding:8px 11px; cursor:pointer; transition:all .16s}
+.mbtn:hover{background:rgba(58,49,44,.6); border-color:var(--line)}
+.mbtn[data-on="true"]{border-color:rgba(212,163,115,.6); background:rgba(212,163,115,.12)}
+.drawer-wrap{position:fixed; inset:0; z-index:70; display:flex; justify-content:flex-end}
+.scrim{position:absolute; inset:0; background:rgba(26,22,20,.72); backdrop-filter:blur(4px); border:0; cursor:pointer}
+.drawer{position:relative; width:min(440px,100vw); height:100%; overflow-y:auto; padding:20px 20px 40px;
+  border-left:1px solid var(--line); background:linear-gradient(180deg, rgba(58,49,44,.98), rgba(26,22,20,.99)); box-shadow:-30px 0 80px -40px #000}
+.modal-wrap{position:fixed; inset:0; z-index:75; overflow-y:auto; background:rgba(26,22,20,.86); backdrop-filter:blur(6px); padding:16px}
+.modal{max-width:920px; margin:0 auto; padding:16px; width: 100%;}
+.toasts{position:fixed; right:16px; bottom:16px; z-index:90; display:flex; flex-direction:column; gap:8px; width:min(370px, calc(100vw - 32px)); pointer-events:none}
+.toast{pointer-events:auto; display:flex; align-items:center; gap:12px; padding:12px 14px}
+.bar-track{height:6px; border-radius:999px; background:var(--ink-900); overflow:hidden}
+.bar-fill{height:100%; border-radius:999px; transition:width .7s cubic-bezier(.22,1,.36,1)}
+
+@keyframes rise{from{opacity:0; transform:translateY(14px)}to{opacity:1; transform:none}}
+.rise{animation:rise .5s cubic-bezier(.22,1,.36,1) both}
+@keyframes popin{from{opacity:0; transform:translateY(10px) scale(.97)}to{opacity:1; transform:none}}
+.popin{animation:popin .22s cubic-bezier(.22,1,.36,1) both}
+@keyframes slidein{from{opacity:0; transform:translateX(30px)}to{opacity:1; transform:none}}
+.slidein{animation:slidein .28s cubic-bezier(.22,1,.36,1) both}
+@keyframes growbar{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.bar{transform-box:fill-box; transform-origin:bottom; animation:growbar .7s cubic-bezier(.22,1,.36,1) both}
+@keyframes dash{from{stroke-dashoffset:var(--len)}}
+.arc{animation:dash .9s cubic-bezier(.22,1,.36,1) both}
+@keyframes pulsedot{0%,100%{opacity:1; box-shadow:0 0 0 0 rgba(212,163,115,.5)}70%{opacity:.65; box-shadow:0 0 0 7px rgba(212,163,115,0)}}
+.dot{width:8px; height:8px; border-radius:999px; background:var(--cash); animation:pulsedot 2.4s ease-out infinite; display:inline-block}
+.dot[data-tone="warn"]{background:var(--prepay); animation-name:none}
+.dot[data-tone="err"]{background:var(--debt); animation-name:none}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms !important; transition-duration:.001ms !important}}
+
+#boot{position:fixed; inset:0; z-index:200; display:grid; place-items:center; background:var(--ink-900); text-align:center; padding:24px; transition:opacity .4s}
+#boot.gone{opacity:0; pointer-events:none}
+#boot .bmark{width:64px;height:64px;margin:0 auto 18px; animation:spin 3.6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#boot h2{font-size:22px; margin-bottom:8px}
+#boot p{color:var(--muted); font-size:13px; max-width:420px; margin:0 auto; line-height:1.6}
+
+@media print{
+  body{background:#fff !important}
+  body::before{display:none}
+  body *{visibility:hidden !important}
+  .no-print,.no-print *{display:none !important}
+  .print-sheet,.print-sheet *{visibility:visible !important}
+  .print-sheet{position:absolute !important; top:0 !important; left:0 !important; width:100% !important; margin:0 !important; padding:0 !important; border:0 !important; box-shadow:none !important; background:#fff !important}
+  .print-sheet svg{width:100% !important; height:auto !important}
+}
+
+/* ── Адаптация под мобильные устройства ── */
+@media(max-width: 1119px) {
+  .rail {
+    position: static;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .months {
+    flex-direction: row;
+    overflow-x: auto;
+    max-height: none;
+    padding-bottom: 8px;
+  }
+}
+@media(max-width: 768px) {
+  .hdr-in {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .brand {
+    margin-bottom: 4px;
+  }
+  .spacer {
+    margin-left: 0;
+    justify-content: space-between;
+  }
+  .monthnav {
+    justify-content: space-between;
+  }
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+  .kpi-grid .hero {
+    grid-column: span 1;
+  }
+  .charts {
+    grid-template-columns: 1fr;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .span2 {
+    grid-column: span 1;
+  }
+  .sect {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .sect .spacer {
+    width: 100%;
+    margin-top: 12px;
+  }
+  .tbl {
+    min-width: 650px; /* Уменьшаем минимальную ширину, так как на телефоне скрыт столбец "Заказ" */
+  }
+  .modal {
+    padding: 16px;
+    width: 100%;
+    margin: 0;
+  }
+  .toasts {
+    width: calc(100vw - 32px);
+    right: 16px;
+    bottom: 16px;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="boot">
+  <div>
+    <svg class="bmark" viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M24 4 44 24 24 44 4 24Z" fill="none" stroke="#d4a373" stroke-width="2"/>
+      <path d="M24 14 34 24 24 34 14 24Z" fill="none" stroke="#b08456" stroke-width="2"/>
+      <path d="M24 20 28 24 24 28 20 24Z" fill="#d16051"/>
+    </svg>
+    <h2>Финансы V&A Light Studio</h2>
+    <p id="bootmsg">Загружаем таблицу учёта…</p>
+  </div>
+</div>
+
+<div id="root"></div>
+
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.25.6/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+const MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+const DELIVERY = { none: "Самовывоз", europost: "Европочта", belpost: "Белпочта" };
+const DELIVERY_COLOR = { none: "#9c7a8e", europost: "#e09f3e", belpost: "#7fa69e" };
+const CATEGORY = { ads: "Реклама", purchase: "Закупка", other: "Другое" };
+const CATEGORY_COLOR = { ads: "#c46d84", purchase: "#a3b19b", other: "#9c7a8e" };
+const STATUS = {
+  unpaid:  { label: "Не оплачен", color: "#d16051", soft: "rgba(209,96,81,.16)" },
+  prepaid: { label: "Предоплата", color: "#e09f3e", soft: "rgba(224,159,62,.16)" },
+  paid:    { label: "Оплачен",    color: "#8da399", soft: "rgba(141,163,153,.16)" },
+};
+
+const pad2 = (n) => String(n).padStart(2, "0");
+const today = () => { const d = new Date(); return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); };
+const currentPeriod = () => today().slice(0, 7);
+const periodOf = (date) => (date || today()).slice(0, 7);
+const defaultDateFor = (p) => (today().startsWith(p) ? today() : p + "-01");
+const monthLabel = (p) => { const [y, m] = p.split("-"); return (MONTHS[Number(m) - 1] || m) + " " + y; };
+const shiftPeriod = (p, delta) => { const [y, m] = p.split("-").map(Number); const d = new Date(y, m - 1 + delta, 1); return d.getFullYear() + "-" + pad2(d.getMonth() + 1); };
+const fmtDate = (d) => (d ? d.split("-").reverse().join(".") : "—");
+const toCents = (v) => { const n = typeof v === "number" ? v : parseFloat(String(v).replace(/\s/g, "").replace(",", ".")); return Number.isFinite(n) ? Math.round(n * 100) : 0; };
+const fromCents = (c) => (c ? String(c / 100) : "");
+const NF = new Intl.NumberFormat("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const NF0 = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 });
+const money = (c) => NF.format((c || 0) / 100) + " Br";
+const moneyShort = (c) => { const v = (c || 0) / 100; return Math.abs(v) >= 1000 ? NF0.format(v / 1000) + " тыс" : NF0.format(v); };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const now = () => Date.now();
+
+function computeStats(orders, expenses) {
+  const total = orders.reduce((s, o) => s + o.amount, 0);
+  const paid = orders.reduce((s, o) => s + o.paid, 0);
+  const delivery = orders.reduce((s, o) => s + o.dlvCost, 0);
+  const exp = expenses.reduce((s, e) => s + e.amount, 0);
+  return {
+    total, paid, delivery, expenses: exp, debt: total - paid, cash: paid - delivery - exp,
+    count: orders.length, avg: orders.length ? Math.round(total / orders.length) : 0,
+    paidCount: orders.filter((o) => o.amount > 0 && o.paid >= o.amount).length,
+    debtors: orders.filter((o) => o.amount > o.paid).length,
+    paidShare: total > 0 ? Math.round((paid / total) * 100) : 0,
+    margin: paid > 0 ? Math.round(((paid - delivery - exp) / paid) * 100) : 0,
+  };
+}
+
+const KEY_DATA = "kasa.v1.data";
+const KEY_VIEWS = "kasa.v1.views";
+const KEY_PREFS = "kasa.v1.prefs";
+const KEY_CLOUD = "kasa.v1.cloud";
+
+const emptyState = () => ({ orders: [], expenses: [], tomb: {} });
+
+function readJSON(key, fallback) {
+  try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+  catch (e) { return fallback; }
+}
+function writeJSON(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+  catch (e) { return false; }
+}
+function sanitize(rec, kind) {
+  const base = { id: String(rec.id || uid()), u: Number(rec.u) || now(), date: /^\d{4}-\d{2}-\d{2}$/.test(rec.date) ? rec.date : today() };
+  if (kind === "order") {
+    const amount = Math.max(0, Math.round(Number(rec.amount) || 0));
+    let status = STATUS[rec.status] ? rec.status : "unpaid";
+    let paid = Math.max(0, Math.round(Number(rec.paid) || 0));
+    if (status === "paid") paid = amount;
+    if (status === "unpaid") paid = 0;
+    paid = Math.min(paid, amount);
+    const dlv = DELIVERY[rec.dlv] ? rec.dlv : "none";
+    return Object.assign(base, {
+      name: String(rec.name || "").slice(0, 200), item: String(rec.item || "").slice(0, 400),
+      amount, status, paid, dlv, dlvCost: dlv === "none" ? 0 : Math.max(0, Math.round(Number(rec.dlvCost) || 0)),
+      note: String(rec.note || "").slice(0, 400), demo: !!rec.demo,
+    });
+  }
+  return Object.assign(base, {
+    title: String(rec.title || "").slice(0, 200),
+    cat: CATEGORY[rec.cat] ? rec.cat : "other",
+    amount: Math.max(0, Math.round(Number(rec.amount) || 0)), demo: !!rec.demo,
+  });
+}
+function normalizeState(raw) {
+  const s = emptyState();
+  if (!raw || typeof raw !== "object") return s;
+  s.orders = (Array.isArray(raw.orders) ? raw.orders : []).map((o) => sanitize(o, "order"));
+  s.expenses = (Array.isArray(raw.expenses) ? raw.expenses : []).map((e) => sanitize(e, "expense"));
+  s.tomb = raw.tomb && typeof raw.tomb === "object" ? raw.tomb : {};
+  return s;
+}
+function alive(list, tomb) { return list.filter((r) => !tomb[r.id] || tomb[r.id] < r.u); }
+
+function mergeStates(a, b) {
+  const out = emptyState();
+  const tomb = Object.assign({}, a.tomb);
+  Object.keys(b.tomb || {}).forEach((id) => { tomb[id] = Math.max(tomb[id] || 0, b.tomb[id] || 0); });
+  ["orders", "expenses"].forEach((kind) => {
+    const map = new Map();
+    (a[kind] || []).forEach((r) => map.set(r.id, r));
+    (b[kind] || []).forEach((r) => {
+      const prev = map.get(r.id);
+      if (!prev || (r.u || 0) > (prev.u || 0)) map.set(r.id, r);
+    });
+    out[kind] = alive(Array.from(map.values()), tomb);
+  });
+  const limit = now() - 180 * 864e5;
+  Object.keys(tomb).forEach((id) => { if (tomb[id] < limit) delete tomb[id]; });
+  out.tomb = tomb;
+  return out;
+}
+const sameState = (a, b) => JSON.stringify(stripVolatile(a)) === JSON.stringify(stripVolatile(b));
+const stripVolatile = (s) => ({
+  o: [...s.orders].sort((x, y) => (x.id < y.id ? -1 : 1)),
+  e: [...s.expenses].sort((x, y) => (x.id < y.id ? -1 : 1)),
+  t: Object.keys(s.tomb).sort().reduce((acc, k) => ((acc[k] = s.tomb[k]), acc), {}),
+});
+
+function demoState(period) {
+  const d = (day) => period + "-" + pad2(day);
+  const O = (day, name, item, amount, status, paid, dlv, dlvCost, note) =>
+    sanitize({ id: uid(), u: now(), date: d(day), name, item, amount, status, paid, dlv, dlvCost, note, demo: true }, "order");
+  const E = (day, title, cat, amount) =>
+    sanitize({ id: uid(), u: now(), date: d(day), title, cat, amount, demo: true }, "expense");
+  return {
+    orders: [
+      O(2, "Ковалёва Ирина Петровна", "Комплект постельного белья «Лён», 2-сп.", 18500, "paid", 18500, "europost", 900, ""),
+      O(3, "Савицкий Дмитрий", "Свитшот оверсайз, размер M", 9600, "paid", 9600, "belpost", 650, "Забрал на пункте"),
+      O(6, "Левченко Анна", "Набор свечей соевых, 3 шт.", 4500, "prepaid", 2000, "europost", 800, "Остаток при получении"),
+      O(8, "ООО «Ремстрой»", "Кружки с логотипом, 25 шт.", 62000, "prepaid", 30000, "none", 0, "Счёт оплачен частично"),
+      O(11, "Гринкевич Ольга", "Плед микрофибра 200×220", 12400, "paid", 12400, "europost", 900, ""),
+      O(14, "Мартынов Павел", "Термокружка 500 мл, 2 шт.", 7800, "unpaid", 0, "belpost", 650, "Ждём оплату до пятницы"),
+      O(17, "Шимко Вероника", "Постельное «Сатин-страйп», евро", 24000, "paid", 24000, "europost", 950, ""),
+      O(20, "Дубровский Артём", "Худи с вышивкой, размер L", 13900, "prepaid", 5000, "none", 0, ""),
+      O(23, "Пашкевич Марина", "Свечи и подсвечник, подарочный набор", 6900, "paid", 6900, "belpost", 700, ""),
+      O(26, "Кузьмич Наталья", "Комплект полотенец, 4 шт.", 8300, "unpaid", 0, "europost", 850, "Отправим после оплаты"),
+    ],
+    expenses: [
+      E(1, "Реклама в Instagram", "ads", 12000),
+      E(5, "Закупка ткани и фурнитуры", "purchase", 34500),
+      E(12, "Упаковка: коробки, скотч, наклейки", "purchase", 4800),
+      E(18, "Таргет ВКонтакте", "ads", 7500),
+      E(24, "Телефон и интернет", "other", 3200),
+    ],
+    tomb: {},
+  };
+}
+
+async function cloudRequest(cfg, method, body) {
+  const target = method === "PUT" && cfg.putUrl ? cfg.putUrl : cfg.url;
+  const headers = { "Content-Type": "application/json" };
+  if (cfg.provider === "jsonbin") {
+    headers["X-Master-Key"] = cfg.key;
+    headers["X-Bin-Meta"] = "false";
+  } else if (cfg.key) {
+    headers["Authorization"] = cfg.key;
+  }
+  const res = await fetch(target, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  if (!res.ok) throw new Error("Облако ответило ошибкой " + res.status);
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+async function cloudPull(cfg) {
+  const data = await cloudRequest(cfg, "GET");
+  const payload = cfg.provider === "jsonbin" && data && data.record ? data.record : data;
+  return normalizeState(payload);
+}
+async function cloudPush(cfg, state) { await cloudRequest(cfg, "PUT", state); }
+
+async function encodeSnapshot(state) {
+  const json = JSON.stringify(state);
+  const bytes = new TextEncoder().encode(json);
+  let out = bytes;
+  if (typeof CompressionStream === "function") {
+    const cs = new CompressionStream("deflate-raw");
+    const stream = new Blob([bytes]).stream().pipeThrough(cs);
+    out = new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  let bin = "";
+  out.forEach((b) => (bin += String.fromCharCode(b)));
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function decodeSnapshot(hash) {
+  const b64 = hash.replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4));
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  let text;
+  if (typeof DecompressionStream === "function") {
+    try {
+      const ds = new DecompressionStream("deflate-raw");
+      const stream = new Blob([bytes]).stream().pipeThrough(ds);
+      text = await new Response(stream).text();
+    } catch (e) { text = new TextDecoder().decode(bytes); }
+  } else { text = new TextDecoder().decode(bytes); }
+  return normalizeState(JSON.parse(text));
+}
+
+let audioCtx = null;
+function cashDing(enabled) {
+  if (!enabled) return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    audioCtx = audioCtx || new Ctx();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const t = audioCtx.currentTime;
+    [1318.5, 1975.5].forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "triangle"; osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t + i * 0.07);
+      gain.gain.exponentialRampToValueAtTime(0.16, t + i * 0.07 + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.07 + 0.38);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t + i * 0.07); osc.stop(t + i * 0.07 + 0.4);
+    });
+  } catch (e) { }
+}
+
+const PATHS = {
+  plus: "M12 5v14M5 12h14", minus: "M5 12h14", check: "M20 6 9 17l-5-5", close: "M18 6 6 18M6 6l12 12",
+  search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-3.2-3.2",
+  trash: "M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14", pencil: "M4 20h4L20 8l-4-4L4 16v4Z",
+  download: "M12 3v12m0 0 4-4m-4 4-4-4M4 21h16", upload: "M12 21V9m0 0 4 4m-4-4-4 4M4 3h16",
+  image: "M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM4 17l5-5 4 4 3-3 4 4M9 9.5a1 1 0 1 0 0-.1",
+  link: "M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1",
+  copy: "M9 9h10v12H9zM5 15V5a2 2 0 0 1 2-2h10", cloud: "M7 18a4 4 0 0 1 .6-8 5.5 5.5 0 0 1 10.5 1.6A3.5 3.5 0 0 1 17.5 18z",
+  truck: "M3 7h11v9H3zM14 10h4l3 3v3h-7zM7 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4M17 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4",
+  wallet: "M3 7a2 2 0 0 1 2-2h12v4M3 7h18v12H3zM17 13h.01", mega: "M4 10v4h3l7 4V6l-7 4H4ZM17 8a5 5 0 0 1 0 8",
+  undo: "M9 14 4 9l5-5M4 9h9a7 7 0 0 1 0 14H8", chevron: "m9 6 6 6-6 6",
+  sparkle: "M12 3v5m0 8v5M3 12h5m8 0h5M6.5 6.5 9 9m6 6 2.5 2.5m0-11L15 9M9 15l-2.5 2.5",
+  sort: "M8 5v14m0 0-3-3m3 3 3-3M16 19V5m0 0-3 3m3-3 3 3", filter: "M4 5h16l-6 7v6l-4 2v-8L4 5Z",
+  box: "M12 3 3 7.5v9L12 21l9-4.5v-9L12 3Zm0 0v18M3 7.5l9 4.5 9-4.5",
+  print: "M7 9V4h10v5M7 18H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v7H7z",
+  sound: "M4 9v6h4l5 4V5L8 9H4ZM17 9a4 4 0 0 1 0 6", mute: "M4 9v6h4l5 4V5L8 9H4ZM17 10l4 4m0-4-4 4",
+  save: "M5 3h11l3 3v15H5zM8 3v6h8V3M8 21v-6h8v6",
+};
+function Icon({ name, size = 16, style }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.8"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={style}>
+      <path d={PATHS[name] || ""} />
+    </svg>
+  );
+}
+function Mark({ size = 38 }) {
+  return (
+    <svg viewBox="0 0 48 48" width={size} height={size} aria-hidden="true">
+      <defs><linearGradient id="mk" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#ecc49a" /><stop offset="100%" stopColor="#b08456" /></linearGradient></defs>
+      <rect x="1" y="1" width="46" height="46" rx="13" fill="#241e1b" stroke="#4e4038" />
+      <path d="M24 7 41 24 24 41 7 24Z" fill="none" stroke="url(#mk)" strokeWidth="2.2" />
+      <path d="M24 15 33 24 24 33 15 24Z" fill="url(#mk)" fillOpacity=".28" stroke="#d4a373" strokeWidth="1.6" />
+      <path d="M24 20.5 27.5 24 24 27.5 20.5 24Z" fill="#d16051" />
+    </svg>
+  );
+}
+
+function WeeklyFlow({ orders }) {
+  const weeks = useMemo(() => {
+    const w = [0, 1, 2, 3, 4].map((i) => ({ label: (i * 7 + 1) + "–" + Math.min((i + 1) * 7, 31), paid: 0, debt: 0 }));
+    orders.forEach((o) => {
+      const day = Number(o.date.slice(8, 10)) || 1;
+      const i = Math.min(4, Math.floor((day - 1) / 7));
+      w[i].paid += o.paid;
+      w[i].debt += Math.max(0, o.amount - o.paid);
+    });
+    return w;
+  }, [orders]);
+  const max = Math.max(1, ...weeks.map((w) => w.paid + w.debt));
+  const W = 340, H = 170, base = H - 26, bw = 40, gap = (W - 24 - bw * 5) / 4;
+  return (
+    <div>
+      <svg viewBox={"0 0 " + W + " " + H} style={{ width: "100%", height: "auto" }} role="img" aria-label="Оплаты по неделям месяца">
+        <defs>
+          <linearGradient id="gp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#ecc49a" /><stop offset="100%" stopColor="#b08456" /></linearGradient>
+          <linearGradient id="gd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f0a296" /><stop offset="100%" stopColor="#b54a3c" /></linearGradient>
+        </defs>
+        {[0.25, 0.5, 0.75, 1].map((t) => (
+          <line key={t} x1="12" x2={W - 12} y1={base - (base - 18) * t} y2={base - (base - 18) * t} stroke="#4e4038" strokeDasharray="3 5" />
+        ))}
+        {weeks.map((w, i) => {
+          const x = 12 + i * (bw + gap), total = w.paid + w.debt;
+          const h = Math.round((total / max) * (base - 24));
+          const hp = total > 0 ? Math.round((w.paid / total) * h) : 0, hd = h - hp;
+          return (
+            <g key={w.label}>
+              <rect x={x} y={base - h} width={bw} height={h} rx="6" fill="#2e2723" />
+              {hd > 0 && <rect className="bar" style={{ animationDelay: i * 70 + "ms" }} x={x} y={base - h} width={bw} height={hd} rx="5" fill="url(#gd)" />}
+              {hp > 0 && <rect className="bar" style={{ animationDelay: (i * 70 + 40) + "ms" }} x={x} y={base - hp} width={bw} height={hp} rx="5" fill="url(#gp)" />}
+              {total > 0 && <text x={x + bw / 2} y={base - h - 6} textAnchor="middle" fontSize="9.5" fill="#a8998c" className="num">{moneyShort(total)}</text>}
+              <text x={x + bw / 2} y={H - 8} textAnchor="middle" fontSize="9.5" fill="#7a6e64">{w.label}</text>
+            </g>
+          );
+        })}
+        <line x1="12" x2={W - 12} y1={base} y2={base} stroke="#5c4f45" />
+      </svg>
+      <div className="row" style={{ gap: 16, fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+        <span className="row" style={{ gap: 6 }}><i style={{ width: 10, height: 10, borderRadius: 3, background: "#d4a373", display: "inline-block" }} />получено</span>
+        <span className="row" style={{ gap: 6 }}><i style={{ width: 10, height: 10, borderRadius: 3, background: "#d16051", display: "inline-block" }} />ещё должны</span>
+      </div>
+    </div>
+  );
+}
+
+function Donut({ slices, caption }) {
+  const total = slices.reduce((s, x) => s + x.value, 0);
+  const r = 52, c = 2 * Math.PI * r;
+  let offset = 0;
+  return (
+    <div className="row" style={{ gap: 16, alignItems: "center", flexWrap: "nowrap" }}>
+      <svg viewBox="0 0 140 140" style={{ width: 128, height: 128, flex: "0 0 auto" }} role="img" aria-label={caption}>
+        <circle cx="70" cy="70" r={r} fill="none" stroke="#2e2723" strokeWidth="18" />
+        {total > 0 && slices.map((s) => {
+          const len = (s.value / total) * c;
+          const el = (
+            <circle key={s.label} className="arc" style={{ "--len": String(c) }} cx="70" cy="70" r={r} fill="none" stroke={s.color}
+              strokeWidth="18" strokeDasharray={len + " " + (c - len)} strokeDashoffset={-offset} transform="rotate(-90 70 70)" />
+          );
+          offset += len;
+          return el;
+        })}
+        <text x="70" y="66" textAnchor="middle" fontSize="15" fill="#fcf9f2" className="num">{moneyShort(total)}</text>
+        <text x="70" y="84" textAnchor="middle" fontSize="9" fill="#7a6e64">Br</text>
+      </svg>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, flex: 1, minWidth: 0, display: "grid", gap: 8 }}>
+        {slices.map((s) => (
+          <li key={s.label} className="row" style={{ gap: 8, fontSize: 12, flexWrap: "nowrap" }}>
+            <i style={{ width: 10, height: 10, borderRadius: 999, background: s.color, flex: "0 0 auto" }} />
+            <span className="trunc muted" style={{ flex: 1 }}>{s.label}</span>
+            <span className="num" style={{ whiteSpace: "nowrap" }}>{money(s.value)}</span>
+            <span className="num dimtxt" style={{ width: 34, textAlign: "right", fontSize: 11 }}>{total > 0 ? Math.round((s.value / total) * 100) : 0}%</span>
+          </li>
+        ))}
+        {total === 0 && <li className="muted" style={{ fontSize: 12 }}>Пока пусто — данные появятся с первой записью.</li>}
+      </ul>
+    </div>
+  );
+}
+
+function CashSplit({ paid, delivery, expenses, cash }) {
+  const base = Math.max(paid, delivery + expenses + Math.max(cash, 0), 1);
+  const parts = [
+    { label: "Касса", value: Math.max(cash, 0), color: "#d4a373" },
+    { label: "Доставка", value: delivery, color: "#e09f3e" },
+    { label: "Расходы", value: expenses, color: "#c46d84" },
+  ];
+  return (
+    <div>
+      <div style={{ display: "flex", height: 24, borderRadius: 999, overflow: "hidden", background: "rgba(0,0,0,.25)", border: "1px solid rgba(0,0,0,.25)" }}>
+        {parts.map((p) => (
+          <div key={p.label} title={p.label + ": " + money(p.value)}
+            style={{ width: (p.value / base) * 100 + "%", background: "linear-gradient(90deg," + p.color + "," + p.color + "cc)", transition: "width .7s cubic-bezier(.22,1,.36,1)" }} />
+        ))}
+      </div>
+      <div className="row" style={{ gap: 14, marginTop: 8, fontSize: 11, color: "rgba(255,255,255,.78)" }}>
+        {parts.map((p) => (
+          <span key={p.label} className="row" style={{ gap: 6 }}>
+            <i style={{ width: 8, height: 8, borderRadius: 999, background: p.color, display: "inline-block" }} />
+            {p.label} <b className="num" style={{ color: "#fff" }}>{money(p.value)}</b>
+          </span>
+        ))}
+        {cash < 0 && <span style={{ background: "rgba(0,0,0,.3)", borderRadius: 999, padding: "2px 9px", color: "#fff", fontWeight: 700 }}>расходы больше поступлений</span>}
+      </div>
+    </div>
+  );
+}
+
+const SHEET_W = 1240;
+const esc = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+const SANS = "Helvetica Neue, Helvetica, Arial, sans-serif";
+const DISPLAY = "Georgia, 'Times New Roman', serif";
+const C = { ink: "#1a1614", green: "#b08456", red: "#b54a3c", gold: "#d4a373", pink: "#c46d84", blue: "#7fa69e", faint: "#8a7859" };
+
+function diamonds(y) {
+  let out = "";
+  for (let x = 0; x < 26; x++) {
+    const cx = 24 + x * 48;
+    out += '<path d="M' + cx + " " + (y - 9) + " L" + (cx + 9) + " " + y + " L" + cx + " " + (y + 9) + " L" + (cx - 9) + " " + y + ' Z" fill="none" stroke="' + C.green + '" stroke-opacity=".45" stroke-width="1.6"/>' +
+      '<path d="M' + cx + " " + (y - 3.5) + " L" + (cx + 3.5) + " " + y + " L" + cx + " " + (y + 3.5) + " L" + (cx - 3.5) + " " + y + ' Z" fill="' + C.red + '" fill-opacity=".65"/>';
+  }
+  return out;
+}
+function kpiBox(x, y, w, label, value, color) {
+  return '<g><rect x="' + x + '" y="' + y + '" width="' + w + '" height="96" rx="14" fill="#ffffff" fill-opacity=".72" stroke="#ddd0b6"/>' +
+    '<rect x="' + x + '" y="' + y + '" width="5" height="96" rx="2.5" fill="' + color + '"/>' +
+    '<text x="' + (x + 22) + '" y="' + (y + 34) + '" font-family="' + SANS + '" font-size="12.5" letter-spacing="1.6" fill="' + C.faint + '">' + esc(label.toUpperCase()) + "</text>" +
+    '<text x="' + (x + 22) + '" y="' + (y + 72) + '" font-family="' + DISPLAY + '" font-size="30" font-weight="bold" fill="' + color + '">' + esc(value) + "</text></g>";
+}
+function sectionHead(title, y, cols) {
+  let out = '<text x="60" y="' + y + '" font-family="' + DISPLAY + '" font-size="26" font-weight="bold" fill="' + C.ink + '">' + esc(title) + "</text>";
+  cols.forEach((c) => {
+    out += '<text x="' + c.x + '" y="' + (y + 34) + '" font-family="' + SANS + '" font-size="11.5" letter-spacing="1.4" fill="' + C.faint + '"' + (c.end ? ' text-anchor="end"' : "") + ">" + esc(c.text) + "</text>";
+  });
+  out += '<line x1="60" y1="' + (y + 46) + '" x2="' + (SHEET_W - 60) + '" y2="' + (y + 46) + '" stroke="#cbbb9c" stroke-width="1.5"/>';
+  return out;
+}
+function buildReportSvg(period, stats, orders, expenses) {
+  const rows = orders.slice(0, 16), rest = orders.length - rows.length;
+  const expRows = expenses.slice(0, 8), expRest = expenses.length - expRows.length;
+  const OH = 42, EH = 34;
+  const oTitle = 512, oFirst = oTitle + 76;
+  const oEnd = oFirst + Math.max(rows.length, 0.8) * OH + (rest > 0 ? 22 : 0);
+  const eTitle = oEnd + 48, eFirst = eTitle + 76;
+  const eEnd = eFirst + Math.max(expRows.length, 0.8) * EH + (expRest > 0 ? 22 : 0);
+  const cashTop = eEnd + 34, H = cashTop + 152;
+  const br = (c) => NF.format(c / 100) + " Br";
+
+  let ordersSvg = "";
+  rows.forEach((o, i) => {
+    const y = oFirst + i * OH, left = o.amount - o.paid;
+    const st = STATUS[o.status] || STATUS.unpaid;
+    const stColor = st.color === "#8da399" ? C.green : st.color === "#e09f3e" ? C.gold : C.red;
+    const sub = [o.dlv !== "none" ? DELIVERY[o.dlv] + " · " + br(o.dlvCost) : "", o.note].filter(Boolean).join(" — ");
+    ordersSvg +=
+      (i % 2 ? '<rect x="60" y="' + (y - 26) + '" width="' + (SHEET_W - 120) + '" height="' + (OH - 2) + '" rx="6" fill="#efe6d3" fill-opacity=".7"/>' : "") +
+      '<text x="76" y="' + y + '" font-family="' + SANS + '" font-size="13.5" fill="#6d6046">' + esc(fmtDate(o.date)) + "</text>" +
+      '<text x="176" y="' + y + '" font-family="' + SANS + '" font-size="15" font-weight="bold" fill="' + C.ink + '">' + esc(clip(o.name, 24)) + "</text>" +
+      '<text x="470" y="' + y + '" font-family="' + SANS + '" font-size="13.5" fill="#4a5a4d">' + esc(clip(o.item || "—", 20)) + "</text>" +
+      '<text x="790" y="' + y + '" font-family="' + SANS + '" font-size="14" text-anchor="end" fill="' + C.ink + '">' + esc(br(o.amount)) + "</text>" +
+      '<text x="930" y="' + y + '" font-family="' + SANS + '" font-size="14" text-anchor="end" fill="' + C.green + '">' + esc(br(o.paid)) + "</text>" +
+      '<text x="1060" y="' + y + '" font-family="' + SANS + '" font-size="14" text-anchor="end" fill="' + (left > 0 ? C.red : "#9aa08f") + '">' + esc(br(left)) + "</text>" +
+      '<text x="1180" y="' + y + '" font-family="' + SANS + '" font-size="13" text-anchor="end" fill="' + stColor + '">' + esc(st.label) + "</text>" +
+      (sub ? '<text x="176" y="' + (y + 15) + '" font-family="' + SANS + '" font-size="11.5" fill="' + C.faint + '">' + esc(clip(sub, 74)) + "</text>" : "");
+  });
+  if (rest > 0) ordersSvg += '<text x="76" y="' + (oFirst + rows.length * OH + 4) + '" font-family="' + SANS + '" font-size="12.5" font-style="italic" fill="' + C.faint + '">и ещё ' + rest + " заказ(ов) — полный список в CSV-копии</text>";
+  if (!rows.length) ordersSvg = '<text x="76" y="' + oFirst + '" font-family="' + SANS + '" font-size="15" fill="' + C.faint + '">Заказов в этом месяце нет</text>';
+
+  let expSvg = "";
+  expRows.forEach((e, i) => {
+    const y = eFirst + i * EH;
+    expSvg +=
+      (i % 2 ? '<rect x="60" y="' + (y - 23) + '" width="' + (SHEET_W - 120) + '" height="' + (EH - 2) + '" rx="6" fill="#efe6d3" fill-opacity=".7"/>' : "") +
+      '<text x="76" y="' + y + '" font-family="' + SANS + '" font-size="13.5" fill="#6d6046">' + esc(fmtDate(e.date)) + "</text>" +
+      '<text x="176" y="' + y + '" font-family="' + SANS + '" font-size="14.5" fill="' + C.ink + '">' + esc(clip(e.title, 44)) + "</text>" +
+      '<text x="790" y="' + y + '" font-family="' + SANS + '" font-size="13.5" fill="' + C.faint + '">' + esc(CATEGORY[e.cat] || e.cat) + "</text>" +
+      '<text x="1180" y="' + y + '" font-family="' + SANS + '" font-size="14" text-anchor="end" fill="' + C.red + '">− ' + esc(br(e.amount)) + "</text>";
+  });
+  if (expRest > 0) expSvg += '<text x="76" y="' + (eFirst + expRows.length * EH + 4) + '" font-family="' + SANS + '" font-size="12.5" font-style="italic" fill="' + C.faint + '">и ещё ' + expRest + " расход(ов)</text>";
+  if (!expRows.length) expSvg = '<text x="76" y="' + eFirst + '" font-family="' + SANS + '" font-size="15" fill="' + C.faint + '">Расходов в этом месяце нет</text>';
+
+  const generated = new Date().toLocaleString("ru-RU", { dateStyle: "long", timeStyle: "short" });
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + SHEET_W + '" height="' + H + '" viewBox="0 0 ' + SHEET_W + " " + H + '" role="img">' +
+    '<rect width="' + SHEET_W + '" height="' + H + '" fill="#f6efe2"/>' +
+    '<rect x="0" y="0" width="' + SHEET_W + '" height="14" fill="' + C.green + '"/><rect x="0" y="14" width="' + SHEET_W + '" height="4" fill="' + C.red + '"/>' +
+    diamonds(52) +
+    '<text x="60" y="132" font-family="' + SANS + '" font-size="13.5" letter-spacing="5" fill="' + C.faint + '">ОТЧЁТ ПО ЗАКАЗАМ И КАССЕ</text>' +
+    '<text x="60" y="196" font-family="' + DISPLAY + '" font-size="54" font-weight="bold" fill="' + C.ink + '">' + esc(monthLabel(period)) + "</text>" +
+    '<text x="' + (SHEET_W - 60) + '" y="196" font-family="' + SANS + '" font-size="13.5" text-anchor="end" fill="' + C.faint + '">заказов: ' + stats.count + " · средний чек " + esc(br(stats.avg)) + "</text>" +
+    '<line x1="60" y1="222" x2="' + (SHEET_W - 60) + '" y2="222" stroke="#cbbb9c" stroke-width="2"/>' +
+    kpiBox(60, 250, 356, "Сумма заказов", br(stats.total), C.ink) +
+    kpiBox(442, 250, 356, "Оплачено клиентами", br(stats.paid), C.green) +
+    kpiBox(824, 250, 356, "Осталось доплатить", br(stats.debt), C.red) +
+    kpiBox(60, 360, 356, "Доставка (вычитается)", br(stats.delivery), C.gold) +
+    kpiBox(442, 360, 356, "Расходы (вычитаются)", br(stats.expenses), C.pink) +
+    kpiBox(824, 360, 356, "Доля оплат", stats.paidShare + "%", C.blue) +
+    sectionHead("Заказы", oTitle, [{ x: 76, text: "ДАТА" }, { x: 176, text: "ПОКУПАТЕЛЬ / ДОСТАВКА" }, { x: 470, text: "ЗАКАЗ" }, { x: 790, text: "СУММА", end: true }, { x: 930, text: "ОПЛАЧЕНО", end: true }, { x: 1060, text: "ОСТАТОК", end: true }, { x: 1180, text: "СТАТУС", end: true }]) +
+    ordersSvg +
+    sectionHead("Расходы", eTitle, [{ x: 76, text: "ДАТА" }, { x: 176, text: "НА ЧТО" }, { x: 790, text: "КАТЕГОРИЯ" }, { x: 1180, text: "СУММА", end: true }]) +
+    expSvg +
+    '<g><rect x="60" y="' + cashTop + '" width="' + (SHEET_W - 120) + '" height="104" rx="18" fill="' + C.green + '"/>' +
+    '<text x="92" y="' + (cashTop + 40) + '" font-family="' + SANS + '" font-size="13" letter-spacing="3" fill="#fce4b8">КАССА ЗА МЕСЯЦ (ЧИСТАЯ)</text>' +
+    '<text x="92" y="' + (cashTop + 84) + '" font-family="' + DISPLAY + '" font-size="40" font-weight="bold" fill="#ffffff">' + esc(br(stats.cash)) + "</text>" +
+    '<text x="' + (SHEET_W - 92) + '" y="' + (cashTop + 46) + '" font-family="' + SANS + '" font-size="13.5" text-anchor="end" fill="#fcf9f2">оплачено ' + esc(br(stats.paid)) + " − доставка " + esc(br(stats.delivery)) + " − расходы " + esc(br(stats.expenses)) + "</text>" +
+    '<text x="' + (SHEET_W - 92) + '" y="' + (cashTop + 76) + '" font-family="' + SANS + '" font-size="13.5" text-anchor="end" fill="#fcf9f2">рентабельность по оплатам: ' + stats.margin + "%</text></g>" +
+    '<text x="60" y="' + (H - 24) + '" font-family="' + SANS + '" font-size="12" fill="' + C.faint + '">Сформировано ' + esc(generated) + " · суммы в белорусских рублях (BYN)</text></svg>";
+}
+function downloadSvgAsPng(svg, filename, scale) {
+  scale = scale || 2;
+  const h = Number((svg.match(/height="(\d+)"/) || [0, 1600])[1]);
+  const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = SHEET_W * scale; canvas.height = h * scale;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#f6efe2"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const a = document.createElement("a");
+        a.href = canvas.toDataURL("image/png"); a.download = filename; a.click();
+        URL.revokeObjectURL(url); resolve();
+      } catch (e) { URL.revokeObjectURL(url); reject(e); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("render")); };
+    img.src = url;
+  });
+}
+function downloadBlob(content, filename, type) {
+  const a = document.createElement("a");
+  const url = URL.createObjectURL(new Blob([content], { type: type }));
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function Field({ label, children, className }) {
+  return (
+    <label className={className || ""} style={{ display: "block", minWidth: 0 }}>
+      <span className="lbl">{label}</span>
+      {children}
+    </label>
+  );
+}
+function StatusPill({ status }) {
+  const m = STATUS[status] || STATUS.unpaid;
+  return (
+    <span className="badge" style={{ background: m.soft, color: m.color, boxShadow: "inset 0 0 0 1px " + m.color + "44" }}>
+      <i style={{ width: 6, height: 6, borderRadius: 999, background: m.color, display: "inline-block" }} />
+      {m.label}
+    </span>
+  );
+}
+function StatCard({ label, value, hint, accent, icon, share, delay }) {
+  return (
+    <div className="panel rise" style={{ padding: 16, animationDelay: (delay || 0) + "ms" }}>
+      <div className="row" style={{ gap: 8, flexWrap: "nowrap" }}>
+        <span style={{ display: "grid", placeItems: "center", width: 28, height: 28, borderRadius: 9, background: accent + "1f", color: accent, boxShadow: "inset 0 0 0 1px " + accent + "44" }}>
+          <Icon name={icon} size={14} />
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--muted)" }}>{label}</span>
+      </div>
+      <div className="num" style={{ marginTop: 10, fontSize: 25, lineHeight: 1, fontWeight: 700, color: accent }}>{value}</div>
+      {typeof share === "number" && (
+        <div className="bar-track" style={{ marginTop: 12 }}>
+          <div className="bar-fill" style={{ width: Math.max(0, Math.min(100, share)) + "%", background: accent }} />
+        </div>
+      )}
+      {hint && <div style={{ marginTop: 8, fontSize: 11, color: "var(--muted)", lineHeight: 1.4 }}>{hint}</div>}
+    </div>
+  );
+}
+function Th({ label, k, right, sortKey, sortDir, onSort }) {
+  const on = sortKey === k;
+  return (
+    <th className={right ? "right" : ""}>
+      <button className="th-btn" data-on={on} onClick={() => onSort(k)}>
+        {label}
+        <Icon name="sort" size={12} style={{ opacity: on ? 1 : 0.35, transform: on && sortDir === "desc" ? "rotate(180deg)" : "none" }} />
+      </button>
+    </th>
+  );
+}
+function Mini({ label, value, color }) {
+  return (
+    <div className="panel-flush" style={{ padding: 12 }}>
+      <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--muted)" }}>{label}</div>
+      <div className="num" style={{ marginTop: 4, fontSize: 18, fontWeight: 700, color }}>{value}</div>
+    </div>
+  );
+}
+function Toasts({ items, onClose }) {
+  const tone = { ok: "#d4a373", err: "#d16051", info: "#7fa69e" };
+  return (
+    <div className="toasts no-print">
+      {items.map((t) => (
+        <div key={t.id} className="panel popin toast" style={{ borderColor: tone[t.tone] + "55" }}>
+          <i style={{ width: 4, height: 30, borderRadius: 999, background: tone[t.tone], flex: "0 0 auto" }} />
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13.5 }}>{t.text}</span>
+          {t.action && (
+            <button className="btn btn-ghost btn-sm" onClick={() => { t.action(); onClose(t.id); }}>
+              <Icon name="undo" size={13} />{t.actionLabel || "Вернуть"}
+            </button>
+          )}
+          <button className="btn btn-ghost btn-ico" onClick={() => onClose(t.id)} aria-label="Закрыть"><Icon name="close" size={14} /></button>
+        </div>
+      ))}
+    </div>
+  );
+}
+function EmptyMonth({ onAdd, onDemo }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "56px 24px", textAlign: "center" }}>
+      <svg viewBox="0 0 120 120" width="96" height="96" aria-hidden="true">
+        <path d="M60 8 112 60 60 112 8 60Z" fill="none" stroke="#4e4038" strokeWidth="2" />
+        <path d="M60 26 94 60 60 94 26 60Z" fill="none" stroke="#d4a373" strokeOpacity=".6" strokeWidth="2" />
+        <path d="M60 46 74 60 60 74 46 60Z" fill="#d4a373" fillOpacity=".25" stroke="#d4a373" />
+        <circle cx="60" cy="60" r="4" fill="#d16051" />
+      </svg>
+      <div>
+        <h4 style={{ fontSize: 20 }}>В этом месяце пока пусто</h4>
+        <p className="muted" style={{ marginTop: 6, fontSize: 14, maxWidth: 460, lineHeight: 1.6 }}>
+          Добавьте первый заказ: ФИО покупателя, сумму, статус оплаты и доставку. Касса, долги и расходы посчитаются сами.
+        </p>
+      </div>
+      <div className="row" style={{ justifyContent: "center" }}>
+        <button className="btn btn-primary" onClick={onAdd}><Icon name="plus" />Добавить первый заказ</button>
+        <button className="btn btn-ghost" onClick={onDemo}><Icon name="sparkle" />Показать демо-месяц</button>
+      </div>
+    </div>
+  );
+}
+
+const BUILT_IN_VIEWS = [
+  { name: "Все заказы", query: "", status: "all", delivery: "all", sortKey: "date", sortDir: "asc" },
+  { name: "Должники", query: "", status: "debt", delivery: "all", sortKey: "left", sortDir: "desc" },
+  { name: "Предоплаты", query: "", status: "prepaid", delivery: "all", sortKey: "date", sortDir: "asc" },
+  { name: "С доставкой", query: "", status: "all", delivery: "sent", sortKey: "dlvCost", sortDir: "desc" },
+];
+const emptyOrderDraft = (date) => ({ date, name: "", item: "", amount: "", status: "unpaid", paid: "", dlv: "none", dlvCost: "", note: "" });
+const emptyExpenseDraft = (date) => ({ date, title: "", cat: "ads", amount: "" });
+
+function App() {
+  const firstRun = useRef(!localStorage.getItem(KEY_DATA));
+  const [state, setStateRaw] = useState(() => {
+    const saved = readJSON(KEY_DATA, null);
+    if (saved) return normalizeState(saved);
+    return demoState(currentPeriod());
+  });
+  const [prefs, setPrefs] = useState(() => Object.assign({ sound: false }, readJSON(KEY_PREFS, {})));
+  const [views, setViews] = useState(() => readJSON(KEY_VIEWS, []));
+  const [cloud, setCloud] = useState(() => Object.assign({ on: false, provider: "jsonbin", binId: "", url: "", key: "", status: "off", last: 0, message: "" }, readJSON(KEY_CLOUD, {})));
+
+  const [period, setPeriod] = useState(currentPeriod());
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("all");
+  const [delivery, setDelivery] = useState("all");
+  const [sortKey, setSortKey] = useState("date");
+  const [sortDir, setSortDir] = useState("asc");
+  const [activeView, setActiveView] = useState("Все заказы");
+  const [viewName, setViewName] = useState(null);
+  const [selected, setSelected] = useState([]);
+  const [drawerId, setDrawerId] = useState(null);
+  const [orderDraft, setOrderDraft] = useState(null);
+  const [editingOrder, setEditingOrder] = useState(null);
+  const [expenseDraft, setExpenseDraft] = useState(() => emptyExpenseDraft(defaultDateFor(currentPeriod())));
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [snapshot, setSnapshot] = useState(null);
+  const [snapshotUrl, setSnapshotUrl] = useState("");
+  const [toasts, setToasts] = useState([]);
+  const searchRef = useRef(null);
+  const formRef = useRef(null);
+  const fileRef = useRef(null);
+  const stateRef = useRef(state);
+  const cloudRef = useRef(cloud);
+  const pushTimer = useRef(0);
+  stateRef.current = state;
+  cloudRef.current = cloud;
+
+  const toast = useCallback((text, tone, action, actionLabel) => {
+    const id = uid();
+    setToasts((t) => [...t.slice(-3), { id, text, tone: tone || "ok", action, actionLabel }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), action ? 9000 : 4000);
+  }, []);
+  const dropToast = (id) => setToasts((t) => t.filter((x) => x.id !== id));
+
+  const schedulePush = useCallback(() => {
+    if (!cloudRef.current.on) return;
+    clearTimeout(pushTimer.current);
+    pushTimer.current = setTimeout(() => doSync(true), 1600);
+  }, []);
+
+  const setState = useCallback((updater) => {
+    setStateRaw((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      writeJSON(KEY_DATA, next);
+      stateRef.current = next;
+      return next;
+    });
+    schedulePush();
+  }, [schedulePush]);
+
+  const doSync = useCallback(async (silent) => {
+    const cfg = cloudRef.current;
+    if (!cfg.on || !cfg.url) return;
+    setCloud((c) => Object.assign({}, c, { status: "sync" }));
+    try {
+      const remote = await cloudPull(cfg);
+      const merged = mergeStates(remote, stateRef.current);
+      if (!sameState(merged, stateRef.current)) {
+        setStateRaw(merged); writeJSON(KEY_DATA, merged); stateRef.current = merged;
+        if (!silent) toast("Получены изменения партнёра", "info");
+      }
+      if (!sameState(merged, remote)) await cloudPush(cfg, merged);
+      setCloud((c) => { const n = Object.assign({}, c, { status: "ok", last: now(), message: "" }); writeJSON(KEY_CLOUD, n); return n; });
+    } catch (e) {
+      setCloud((c) => Object.assign({}, c, { status: "err", message: (e && e.message) || "нет связи" }));
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    if (firstRun.current) writeJSON(KEY_DATA, stateRef.current);
+    writeJSON(KEY_PREFS, prefs);
+    document.getElementById("boot") && document.getElementById("boot").classList.add("gone");
+    setTimeout(() => { const b = document.getElementById("boot"); if (b) b.remove(); }, 600);
+  }, []);
+  useEffect(() => { writeJSON(KEY_PREFS, prefs); }, [prefs]);
+  useEffect(() => { writeJSON(KEY_VIEWS, views); }, [views]);
+  useEffect(() => { writeJSON(KEY_CLOUD, cloud); }, [cloud]);
+  useEffect(() => {
+    if (!cloud.on || !cloud.url) return;
+    doSync(true);
+    const t = setInterval(() => { if (document.visibilityState === "visible") doSync(true); }, 12000);
+    return () => clearInterval(t);
+  }, [cloud.on, cloud.url, doSync]);
+
+  useEffect(() => {
+    const h = window.location.hash || "";
+    if (h.indexOf("#d=") === 0) {
+      decodeSnapshot(h.slice(3))
+        .then((s) => { setSnapshot(s); history.replaceState(null, "", window.location.pathname + window.location.search); })
+        .catch(() => toast("Ссылка повреждена — данные не прочитаны", "err"));
+    }
+    const onKey = (e) => {
+      if (e.key === "Escape") { setDrawerId(null); setReportOpen(false); setShareOpen(false); setSnapshot(null); }
+      if (e.key === "/" && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "SELECT") {
+        e.preventDefault(); searchRef.current && searchRef.current.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toast]);
+
+  const monthOrders = useMemo(() => state.orders.filter((o) => periodOf(o.date) === period), [state.orders, period]);
+  const monthExpenses = useMemo(() => state.expenses.filter((e) => periodOf(e.date) === period), [state.expenses, period]);
+  const stats = useMemo(() => computeStats(monthOrders, monthExpenses), [monthOrders, monthExpenses]);
+  const monthsInfo = useMemo(() => {
+    const map = new Map();
+    const touch = (p) => { if (!map.has(p)) map.set(p, { period: p, count: 0, cash: 0 }); return map.get(p); };
+    state.orders.forEach((o) => { const m = touch(periodOf(o.date)); m.count++; m.cash += o.paid - o.dlvCost; });
+    state.expenses.forEach((e) => { const m = touch(periodOf(e.date)); m.cash -= e.amount; });
+    [period, currentPeriod(), shiftPeriod(currentPeriod(), -1), shiftPeriod(currentPeriod(), 1)].forEach(touch);
+    return Array.from(map.values()).sort((a, b) => (a.period < b.period ? 1 : -1));
+  }, [state, period]);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = monthOrders.filter((o) => {
+      if (q && (o.name + " " + o.item + " " + o.note).toLowerCase().indexOf(q) === -1) return false;
+      if (status === "debt" && o.paid >= o.amount) return false;
+      if (status !== "all" && status !== "debt" && o.status !== status) return false;
+      if (delivery === "sent" && o.dlv === "none") return false;
+      if (delivery !== "all" && delivery !== "sent" && o.dlv !== delivery) return false;
+      return true;
+    });
+    const dir = sortDir === "asc" ? 1 : -1;
+    const val = (o) =>
+      sortKey === "name" ? o.name.toLowerCase()
+      : sortKey === "amount" ? o.amount
+      : sortKey === "paid" ? o.paid
+      : sortKey === "left" ? o.amount - o.paid
+      : sortKey === "dlvCost" ? o.dlvCost
+      : o.date;
+    return list.slice().sort((a, b) => {
+      const av = val(a), bv = val(b);
+      if (av === bv) return a.id < b.id ? -dir : dir;
+      return (av > bv ? 1 : -1) * dir;
+    });
+  }, [monthOrders, query, status, delivery, sortKey, sortDir]);
+
+  const totals = useMemo(() => ({
+    amount: visible.reduce((s, o) => s + o.amount, 0),
+    paid: visible.reduce((s, o) => s + o.paid, 0),
+    left: visible.reduce((s, o) => s + (o.amount - o.paid), 0),
+    dlv: visible.reduce((s, o) => s + o.dlvCost, 0),
+  }), [visible]);
+
+  const drawerOrder = state.orders.find((o) => o.id === drawerId) || null;
+  const demoCount = state.orders.filter((o) => o.demo).length + state.expenses.filter((e) => e.demo).length;
+
+  const normalizeDraft = (d) => sanitize({
+    id: editingOrder || uid(), u: now(), date: d.date, name: d.name, item: d.item,
+    amount: toCents(d.amount), status: d.status, paid: toCents(d.paid), dlv: d.dlv, dlvCost: toCents(d.dlvCost), note: d.note,
+  }, "order");
+
+  function submitOrder(e) {
+    e.preventDefault();
+    if (!orderDraft) return;
+    const rec = normalizeDraft(orderDraft);
+    if (!rec.name.trim()) return toast("Введите ФИО покупателя", "err");
+    if (rec.amount <= 0) return toast("Укажите стоимость заказа", "err");
+    const wasEditing = editingOrder;
+    setState((s) => ({
+      orders: wasEditing ? s.orders.map((o) => (o.id === wasEditing ? rec : o)) : s.orders.concat([rec]),
+      expenses: s.expenses, tomb: s.tomb,
+    }));
+    setOrderDraft(null); setEditingOrder(null);
+    setPeriod(periodOf(rec.date));
+    if (rec.status === "paid") cashDing(prefs.sound);
+    toast(wasEditing ? "Изменения сохранены" : "Заказ добавлен: " + rec.name);
+  }
+  function patchOrder(o, patch, label, ding) {
+    const next = sanitize(Object.assign({}, o, patch, { u: now() }), "order");
+    setState((s) => ({ orders: s.orders.map((x) => (x.id === o.id ? next : x)), expenses: s.expenses, tomb: s.tomb }));
+    if (ding) cashDing(prefs.sound);
+    if (label) toast(label);
+  }
+  function removeOrders(list) {
+    if (!list.length) return;
+    const ids = list.map((o) => o.id);
+    setState((s) => {
+      const tomb = Object.assign({}, s.tomb);
+      ids.forEach((id) => (tomb[id] = now()));
+      return { orders: s.orders.filter((o) => ids.indexOf(o.id) === -1), expenses: s.expenses, tomb };
+    });
+    setSelected([]); setDrawerId(null);
+    toast(list.length > 1 ? "Удалено записей: " + list.length : "Удалён заказ: " + list[0].name, "info", () => {
+      setState((s) => {
+        const tomb = Object.assign({}, s.tomb);
+        ids.forEach((id) => delete tomb[id]);
+        return { orders: s.orders.concat(list.map((o) => Object.assign({}, o, { u: now() }))), expenses: s.expenses, tomb };
+      });
+      toast("Записи восстановлены");
+    });
+  }
+  function bulkMarkPaid() {
+    const list = monthOrders.filter((o) => selected.indexOf(o.id) !== -1 && o.paid < o.amount);
+    if (!list.length) return toast("Все выбранные уже оплачены", "info");
+    const ids = list.map((o) => o.id);
+    setState((s) => ({
+      orders: s.orders.map((o) => (ids.indexOf(o.id) !== -1 ? sanitize(Object.assign({}, o, { status: "paid", paid: o.amount, u: now() }), "order") : o)),
+      expenses: s.expenses, tomb: s.tomb,
+    }));
+    setSelected([]); cashDing(prefs.sound);
+    toast("Отмечено оплаченными: " + list.length);
+  }
+  function startEditOrder(o) {
+    setEditingOrder(o.id);
+    setOrderDraft({
+      date: o.date, name: o.name, item: o.item, amount: fromCents(o.amount), status: o.status,
+      paid: fromCents(o.paid), dlv: o.dlv, dlvCost: fromCents(o.dlvCost), note: o.note,
+    });
+    setDrawerId(null);
+    setTimeout(() => formRef.current && formRef.current.scrollIntoView({ behavior: "smooth", block: "center" }), 40);
+  }
+  function openNewOrder() {
+    setEditingOrder(null);
+    setOrderDraft(emptyOrderDraft(defaultDateFor(period)));
+    setTimeout(() => formRef.current && formRef.current.scrollIntoView({ behavior: "smooth", block: "center" }), 40);
+  }
+
+  function submitExpense(e) {
+    e.preventDefault();
+    const amount = toCents(expenseDraft.amount);
+    if (!expenseDraft.title.trim()) return toast("Введите, на что потрачено", "err");
+    if (amount <= 0) return toast("Укажите сумму расхода", "err");
+    
+    // Исправление логики: проверяем, новый это расход или редактирование существующего
+    const isNew = editingExpense === "new" || !editingExpense;
+    const rec = sanitize({ id: isNew ? uid() : editingExpense, u: now(), date: expenseDraft.date, title: expenseDraft.title, cat: expenseDraft.cat, amount }, "expense");
+    
+    setState((s) => ({
+      orders: s.orders,
+      expenses: isNew ? s.expenses.concat([rec]) : s.expenses.map((x) => (x.id === editingExpense ? rec : x)),
+      tomb: s.tomb,
+    }));
+    
+    setExpenseDraft(emptyExpenseDraft(defaultDateFor(periodOf(rec.date))));
+    setEditingExpense(null);
+    setPeriod(periodOf(rec.date));
+    toast(isNew ? "Расход добавлен: " + rec.title : "Расход изменён");
+  }
+  function removeExpense(x) {
+    setState((s) => {
+      const tomb = Object.assign({}, s.tomb); tomb[x.id] = now();
+      return { orders: s.orders, expenses: s.expenses.filter((e) => e.id !== x.id), tomb };
+    });
+    toast("Удалён расход: " + x.title, "info", () => {
+      setState((s) => {
+        const tomb = Object.assign({}, s.tomb); delete tomb[x.id];
+        return { orders: s.orders, expenses: s.expenses.concat([Object.assign({}, x, { u: now() })]), tomb };
+      });
+      toast("Расход восстановлен");
+    });
+  }
+
+  const allViews = BUILT_IN_VIEWS.concat(views);
+  function applyView(v) {
+    setActiveView(v.name); setQuery(v.query); setStatus(v.status); setDelivery(v.delivery);
+    setSortKey(v.sortKey); setSortDir(v.sortDir); setSelected([]);
+  }
+  function toggleSort(k) {
+    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(k); setSortDir(k === "date" || k === "name" ? "asc" : "desc"); }
+  }
+
+  function exportCsv() {
+    const q = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+    const rows = [["Отчёт за " + monthLabel(period)], [],
+      ["Дата", "ФИО", "Заказ", "Сумма", "Статус", "Оплачено", "Осталось", "Доставка", "Стоимость доставки", "Примечание"]]
+      .concat(monthOrders.map((o) => [fmtDate(o.date), o.name, o.item, (o.amount / 100).toFixed(2), (STATUS[o.status] || {}).label || "",
+        (o.paid / 100).toFixed(2), ((o.amount - o.paid) / 100).toFixed(2), DELIVERY[o.dlv], (o.dlvCost / 100).toFixed(2), o.note]))
+      .concat([[], ["Расходы"], ["Дата", "На что", "Категория", "Сумма"]])
+      .concat(monthExpenses.map((x) => [fmtDate(x.date), x.title, CATEGORY[x.cat], (x.amount / 100).toFixed(2)]))
+      .concat([[], ["Итого заказов", (stats.total / 100).toFixed(2)], ["Оплачено", (stats.paid / 100).toFixed(2)],
+        ["К доплате", (stats.debt / 100).toFixed(2)], ["Доставка", (stats.delivery / 100).toFixed(2)],
+        ["Расходы", (stats.expenses / 100).toFixed(2)], ["КАССА (чистая)", (stats.cash / 100).toFixed(2)]]);
+    downloadBlob("\uFEFF" + rows.map((r) => r.map(q).join(";")).join("\r\n"), "kasa-" + period + ".csv", "text/csv;charset=utf-8");
+    toast("CSV-копия скачана");
+  }
+  function exportBackup() {
+    downloadBlob(JSON.stringify({ app: "kasa", v: 1, savedAt: new Date().toISOString(), data: state }, null, 1),
+      "kasa-backup-" + today() + ".json", "application/json");
+    toast("Резервная копия сохранена");
+  }
+  function importBackup(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+        const incoming = normalizeState(parsed && parsed.data ? parsed.data : parsed);
+        setState((s) => mergeStates(s, incoming));
+        toast("Загружено: заказов " + incoming.orders.length + ", расходов " + incoming.expenses.length);
+      } catch (err) { toast("Файл не читается — нужен JSON из резервной копии", "err"); }
+    };
+    reader.readAsText(file);
+  }
+  async function makeSnapshotLink() {
+    try {
+      const hash = await encodeSnapshot(state);
+      const url = window.location.origin + window.location.pathname + "#d=" + hash;
+      setSnapshotUrl(url);
+      toast(hash.length > 8000 ? "Ссылка получилась длинной — лучше отправить файл" : "Ссылка-снимок готова");
+    } catch (e) { toast("Не удалось создать ссылку", "err"); }
+  }
+  function copyText(text, okMsg) {
+    const done = () => toast(okMsg || "Скопировано");
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => fallback());
+    else fallback();
+    function fallback() {
+      const ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) { toast("Скопируйте вручную", "err"); }
+      ta.remove();
+    }
+  }
+
+  const reportSvg = useMemo(() => buildReportSvg(period, stats, monthOrders, monthExpenses), [period, stats, monthOrders, monthExpenses]);
+  const allChecked = visible.length > 0 && visible.every((o) => selected.indexOf(o.id) !== -1);
+  const setD = (patch) => setOrderDraft((f) => (f ? Object.assign({}, f, patch) : f));
+  const cloudTone = !cloud.on ? "warn" : cloud.status === "err" ? "err" : cloud.status === "sync" ? "warn" : "ok";
+  const cloudText = !cloud.on ? "локально" : cloud.status === "err" ? "облако недоступно" : cloud.status === "sync" ? "синхронизация…"
+    : cloud.last ? "облако · " + new Date(cloud.last).toLocaleTimeString("ru-RU") : "облако включено";
+
+  return (
+    <div>
+      <header className="hdr no-print">
+        <div className="hdr-in">
+          <div className="brand">
+            <Mark />
+            <div><h1>Финансы V&A Light Studio</h1><small>учёт заказов · BYN</small></div>
+          </div>
+
+          <div className="monthnav">
+            <button className="btn btn-ghost btn-ico" style={{ background: "none", border: 0 }} onClick={() => setPeriod(shiftPeriod(period, -1))} aria-label="Предыдущий месяц">
+              <Icon name="chevron" style={{ transform: "rotate(180deg)" }} />
+            </button>
+            <select value={period} onChange={(e) => setPeriod(e.target.value)} aria-label="Месяц">
+              {monthsInfo.map((m) => <option key={m.period} value={m.period}>{monthLabel(m.period)}</option>)}
+            </select>
+            <button className="btn btn-ghost btn-ico" style={{ background: "none", border: 0 }} onClick={() => setPeriod(shiftPeriod(period, 1))} aria-label="Следующий месяц">
+              <Icon name="chevron" />
+            </button>
+          </div>
+
+          <span className="pill" title={cloud.on ? "Синхронизация через облако" : "Данные хранятся в этом браузере"}>
+            <i className="dot" data-tone={cloudTone} />{cloudText}
+          </span>
+
+          <div className="spacer row">
+            <button className="btn btn-ghost btn-ico" title={prefs.sound ? "Звук включён" : "Звук выключен"}
+              onClick={() => { const on = !prefs.sound; setPrefs(Object.assign({}, prefs, { sound: on })); if (on) cashDing(true); }}>
+              <Icon name={prefs.sound ? "sound" : "mute"} />
+            </button>
+            <button className="btn btn-ghost" onClick={() => setShareOpen(true)}><Icon name="cloud" /><span className="wide-inline">Общий доступ</span></button>
+            <button className="btn btn-ghost" onClick={() => setReportOpen(true)}><Icon name="image" /><span className="wide-inline">Отчёт</span></button>
+            <button className="btn btn-primary" onClick={openNewOrder}><Icon name="plus" />Заказ</button>
+          </div>
+        </div>
+      </header>
+
+      {demoCount > 0 && (
+        <div className="no-print" style={{ background: "rgba(224,159,62,.12)", borderBottom: "1px solid rgba(224,159,62,.35)", padding: "8px 16px", textAlign: "center", fontSize: 12.5, color: "var(--prepay)" }}>
+          В таблице есть демо-записи ({demoCount} шт.) — они нужны, чтобы показать, как всё считается.{" "}
+          <button className="btn btn-ghost btn-sm" style={{ marginLeft: 6 }}
+            onClick={() => {
+              const removed = { orders: state.orders.filter((o) => o.demo), expenses: state.expenses.filter((e) => e.demo) };
+              setState((s) => ({ orders: s.orders.filter((o) => !o.demo), expenses: s.expenses.filter((e) => !e.demo), tomb: s.tomb }));
+              toast("Демо убрано — таблица готова к работе", "info", () => {
+                setState((s) => ({ orders: s.orders.concat(removed.orders), expenses: s.expenses.concat(removed.expenses), tomb: s.tomb }));
+              });
+            }}>Убрать демо и вести свой учёт</button>
+        </div>
+      )}
+
+      <div className="wrap">
+        <aside className="rail no-print">
+          <div className="panel" style={{ padding: 12 }}>
+            <div className="row" style={{ justifyContent: "space-between", padding: "0 4px 8px" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--muted)" }}>Месяцы</span>
+              <input type="month" className="fld" style={{ width: "auto", padding: "4px 8px", fontSize: 11 }} value={period} onChange={(e) => e.target.value && setPeriod(e.target.value)} aria-label="Перейти к месяцу" />
+            </div>
+            <ul className="months">
+              {monthsInfo.map((m) => (
+                <li key={m.period}>
+                  <button className="mbtn" data-on={m.period === period} onClick={() => { setPeriod(m.period); setSelected([]); setDrawerId(null); }}>
+                    <div className="row" style={{ justifyContent: "space-between", gap: 10, flexWrap: "nowrap" }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 700, color: m.period === period ? "var(--cash)" : "var(--bright)" }}>{monthLabel(m.period)}</span>
+                      <span className="num dimtxt" style={{ fontSize: 11 }}>{m.count ? m.count + " зак." : "—"}</span>
+                    </div>
+                    <div className="num dimtxt" style={{ fontSize: 11, marginTop: 2 }}>
+                      касса <b style={{ color: m.cash < 0 ? "var(--debt)" : "var(--bright)" }}>{moneyShort(m.cash)}</b> Br
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="panel" style={{ padding: 12 }}>
+            <div style={{ padding: "0 4px 8px", fontSize: 11, fontWeight: 700, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--muted)" }}>Виды</div>
+            <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 3 }}>
+              {allViews.map((v) => (
+                <li key={v.name} className="row" style={{ gap: 4, flexWrap: "nowrap" }}>
+                  <button onClick={() => applyView(v)} className="mbtn trunc"
+                    style={{ flex: 1, fontSize: 12, padding: "7px 10px", color: activeView === v.name ? "var(--post)" : "var(--muted)", background: activeView === v.name ? "rgba(127,166,158,.14)" : "none" }}>
+                    {v.name}
+                  </button>
+                  {views.some((x) => x.name === v.name) && (
+                    <button className="btn btn-ghost btn-ico" style={{ padding: 4 }} aria-label={"Удалить вид " + v.name}
+                      onClick={() => { setViews(views.filter((x) => x.name !== v.name)); if (activeView === v.name) applyView(BUILT_IN_VIEWS[0]); }}>
+                      <Icon name="close" size={13} />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {viewName === null ? (
+              <button className="btn btn-ghost btn-sm" style={{ width: "100%", marginTop: 8 }} onClick={() => setViewName("")}>
+                <Icon name="filter" size={13} />Сохранить текущий вид
+              </button>
+            ) : (
+              <form className="row" style={{ gap: 4, marginTop: 8, flexWrap: "nowrap" }}
+                onSubmit={(e) => { e.preventDefault(); const n = viewName.trim(); if (n) { setViews(views.filter((x) => x.name !== n).concat([{ name: n, query, status, delivery, sortKey, sortDir }])); setActiveView(n); toast("Вид «" + n + "» сохранён"); } setViewName(null); }}>
+                <input autoFocus className="fld" style={{ padding: "6px 10px", fontSize: 12 }} placeholder="Название" value={viewName} onChange={(e) => setViewName(e.target.value)} />
+                <button className="btn btn-primary btn-ico" type="submit" aria-label="Сохранить вид"><Icon name="check" size={14} /></button>
+              </form>
+            )}
+          </div>
+
+          <div className="panel" style={{ padding: 12 }}>
+            <div style={{ padding: "0 4px 8px", fontSize: 11, fontWeight: 700, letterSpacing: ".16em", textTransform: "uppercase", color: "var(--muted)" }}>Данные</div>
+            <div className="stack" style={{ gap: 6 }}>
+              <button className="btn btn-ghost btn-sm" style={{ justifyContent: "flex-start" }} onClick={exportCsv}><Icon name="download" size={14} />Скачать месяц в CSV</button>
+              <button className="btn btn-ghost btn-sm" style={{ justifyContent: "flex-start" }} onClick={exportBackup}><Icon name="save" size={14} />Резервная копия (JSON)</button>
+              <button className="btn btn-ghost btn-sm" style={{ justifyContent: "flex-start" }} onClick={() => fileRef.current && fileRef.current.click()}><Icon name="upload" size={14} />Загрузить из файла</button>
+              <button className="btn btn-ghost btn-sm" style={{ justifyContent: "flex-start" }} onClick={() => setShareOpen(true)}><Icon name="cloud" size={14} />Работа вдвоём</button>
+              <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: "none" }}
+                onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) importBackup(f); e.target.value = ""; }} />
+            </div>
+            <p className="dimtxt" style={{ fontSize: 11, lineHeight: 1.5, marginTop: 10, padding: "0 4px" }}>
+              Всё сохраняется в этом браузере автоматически. Раз в месяц делайте резервную копию — файл можно хранить в облаке или отправить партнёру.
+            </p>
+          </div>
+        </aside>
+
+        <main className="main">
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-end" }}>
+            <div>
+              <h2 style={{ fontSize: 34, lineHeight: 1.05 }}>{monthLabel(period)}</h2>
+              <p className="muted" style={{ marginTop: 6, fontSize: 13.5 }}>
+                {stats.count} заказ(ов) · средний чек {money(stats.avg)} · оплачено {stats.paidShare}% суммы
+              </p>
+            </div>
+            {stats.debtors > 0 && (
+              <button className="chip" style={{ borderColor: "rgba(209,96,81,.45)", background: "rgba(209,96,81,.12)", color: "var(--debt)" }} onClick={() => applyView(BUILT_IN_VIEWS[1])}>
+                Должников: <b className="num">{stats.debtors}</b> на <b className="num">{money(stats.debt)}</b>
+              </button>
+            )}
+          </div>
+
+          <section className="kpi-grid">
+            <div className="hero rise">
+              <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".18em", textTransform: "uppercase", color: "rgba(255,255,255,.75)" }}>Касса за месяц · чистая</div>
+                  <div className="num" style={{ marginTop: 8, fontSize: 42, lineHeight: 1, fontWeight: 700, color: "#fff" }}>{money(stats.cash)}</div>
+                  <div style={{ marginTop: 8, fontSize: 12, color: "rgba(255,255,255,.82)" }}>
+                    оплачено {money(stats.paid)} − доставка {money(stats.delivery)} − расходы {money(stats.expenses)}
+                  </div>
+                </div>
+                <span className="badge" style={{ background: "rgba(0,0,0,.22)", color: "#fff" }}>рентабельность {stats.margin}%</span>
+              </div>
+              <div style={{ marginTop: 16 }}>
+                <CashSplit paid={stats.paid} delivery={stats.delivery} expenses={stats.expenses} cash={stats.cash} />
+              </div>
+            </div>
+            <StatCard label="Сумма заказов" value={money(stats.total)} accent="#fcf9f2" icon="box" hint={stats.count + " записей за месяц"} share={100} delay={60} />
+            <StatCard label="Оплачено" value={money(stats.paid)} accent="#d4a373" icon="wallet" hint={stats.paidCount + " заказ(ов) закрыто"} share={stats.paidShare} delay={120} />
+            <StatCard label="Ещё должны" value={money(stats.debt)} accent="#d16051" icon="minus" hint={stats.debtors + " заказ(ов) с остатком"} share={100 - stats.paidShare} delay={180} />
+            <StatCard label="Доставка" value={money(stats.delivery)} accent="#e09f3e" icon="truck" hint="вычитается из кассы" delay={240} />
+            <StatCard label="Расходы" value={money(stats.expenses)} accent="#c46d84" icon="mega" hint="реклама, закупки, прочее" delay={300} />
+          </section>
+
+          <section className="charts">
+            <div className="panel rise" style={{ padding: 16, animationDelay: "160ms" }}>
+              <h3 style={{ fontSize: 14, marginBottom: 12 }}>Деньги по неделям</h3>
+              <WeeklyFlow orders={monthOrders} />
+            </div>
+            <div className="panel rise" style={{ padding: 16, animationDelay: "220ms" }}>
+              <h3 style={{ fontSize: 14, marginBottom: 12 }}>Куда ушли расходы</h3>
+              <Donut caption="Структура расходов" slices={["ads", "purchase", "other"].map((k) => ({
+                label: CATEGORY[k], color: CATEGORY_COLOR[k], value: monthExpenses.filter((e) => e.cat === k).reduce((s, e) => s + e.amount, 0),
+              }))} />
+            </div>
+            <div className="panel rise" style={{ padding: 16, animationDelay: "280ms" }}>
+              <h3 style={{ fontSize: 14, marginBottom: 12 }}>Доставка по службам</h3>
+              <Donut caption="Стоимость доставки" slices={["europost", "belpost", "none"].map((k) => ({
+                label: DELIVERY[k], color: DELIVERY_COLOR[k], value: monthOrders.filter((o) => o.dlv === k).reduce((s, o) => s + o.dlvCost, 0),
+              }))} />
+            </div>
+          </section>
+
+          <section className="panel rise" ref={formRef} style={{ overflow: "hidden" }}>
+            <div className="sect">
+              <h3>Заказы</h3>
+              <span className="tag">{visible.length} / {monthOrders.length}</span>
+              <div className="spacer row">
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 9, top: 9, color: "var(--muted)", pointerEvents: "none" }}><Icon name="search" size={15} /></span>
+                  <input ref={searchRef} className="fld" style={{ width: 200, paddingLeft: 30 }} placeholder="Поиск (/)" value={query}
+                    onChange={(e) => { setQuery(e.target.value); setActiveView(""); }} />
+                </div>
+                {[["all", "Все"], ["unpaid", "Не оплачен"], ["prepaid", "Предоплата"], ["paid", "Оплачен"], ["debt", "С остатком"]].map((s) => (
+                  <button key={s[0]} className="chip" data-on={status === s[0]} onClick={() => setStatus(s[0])}>{s[1]}</button>
+                ))}
+                <select className="fld" style={{ width: "auto" }} value={delivery} onChange={(e) => setDelivery(e.target.value)} aria-label="Фильтр по доставке">
+                  <option value="all">Любая доставка</option><option value="sent">Только с доставкой</option>
+                  <option value="europost">Европочта</option><option value="belpost">Белпочта</option><option value="none">Самовывоз</option>
+                </select>
+                <button className="btn btn-primary" onClick={() => (orderDraft ? (setOrderDraft(null), setEditingOrder(null)) : openNewOrder())}>
+                  <Icon name={orderDraft ? "close" : "plus"} />{orderDraft ? "Закрыть" : "Добавить"}
+                </button>
+              </div>
+            </div>
+
+            {orderDraft && (
+              <form className="form-grid popin" style={{ padding: 16, borderBottom: "1px solid var(--line)", background: "rgba(26,22,20,.55)" }} onSubmit={submitOrder}>
+                <Field label="Дата заказа"><input type="date" required className="fld" value={orderDraft.date} onChange={(e) => setD({ date: e.target.value })} /></Field>
+                <Field label="ФИО покупателя *" className="span2"><input required autoFocus className="fld" placeholder="Иванова Мария Сергеевна" value={orderDraft.name} onChange={(e) => setD({ name: e.target.value })} /></Field>
+                <Field label="Стоимость с доставкой, Br"><input inputMode="decimal" required className="fld num" placeholder="0.00" value={orderDraft.amount} onChange={(e) => setD({ amount: e.target.value })} /></Field>
+                <Field label="Что заказал" className="span2"><input className="fld" placeholder="Комплект постельного белья, 2-сп." value={orderDraft.item} onChange={(e) => setD({ item: e.target.value })} /></Field>
+                <Field label="Оплата">
+                  <select className="fld" value={orderDraft.status} onChange={(e) => setD({ status: e.target.value })}>
+                    <option value="unpaid">Не оплачен</option><option value="prepaid">Предоплата</option><option value="paid">Оплачен полностью</option>
+                  </select>
+                </Field>
+                <Field label="Внесено сейчас, Br">
+                  <input inputMode="decimal" className="fld num" disabled={orderDraft.status !== "prepaid"}
+                    placeholder={orderDraft.status === "paid" ? "вся сумма" : orderDraft.status === "unpaid" ? "—" : "0.00"}
+                    value={orderDraft.status === "prepaid" ? orderDraft.paid : ""} onChange={(e) => setD({ paid: e.target.value })} />
+                </Field>
+                <Field label="Доставка">
+                  <select className="fld" value={orderDraft.dlv} onChange={(e) => setD({ dlv: e.target.value })}>
+                    <option value="none">Самовывоз / без доставки</option><option value="europost">Европочта</option><option value="belpost">Белпочта</option>
+                  </select>
+                </Field>
+                <Field label="Сумма доставки, Br">
+                  <input inputMode="decimal" className="fld num" disabled={orderDraft.dlv === "none"} placeholder="0.00"
+                    value={orderDraft.dlv === "none" ? "" : orderDraft.dlvCost} onChange={(e) => setD({ dlvCost: e.target.value })} />
+                </Field>
+                <Field label="Примечание" className="span2"><input className="fld" placeholder="Например: остаток при получении" value={orderDraft.note} onChange={(e) => setD({ note: e.target.value })} /></Field>
+                <div className="span4 row">
+                  <button className="btn btn-primary" type="submit"><Icon name="check" />{editingOrder ? "Сохранить изменения" : "Добавить заказ"}</button>
+                  <button className="btn btn-ghost" type="button" onClick={() => { setOrderDraft(null); setEditingOrder(null); }}>Отмена</button>
+                  {toCents(orderDraft.amount) > 0 && (
+                    <span className="num muted spacer" style={{ fontSize: 12 }}>
+                      чистыми в кассу:{" "}
+                      <b style={{ color: "var(--cash)" }}>
+                        {money((orderDraft.status === "paid" ? toCents(orderDraft.amount) : orderDraft.status === "prepaid" ? toCents(orderDraft.paid) : 0) - (orderDraft.dlv === "none" ? 0 : toCents(orderDraft.dlvCost)))}
+                      </b>
+                    </span>
+                  )}
+                </div>
+              </form>
+            )}
+
+            {monthOrders.length === 0 ? (
+              <EmptyMonth onAdd={openNewOrder} onDemo={() => {
+                const demo = demoState(period);
+                setState((s) => mergeStates(s, demo));
+                toast("Демо-данные загружены");
+              }} />
+            ) : (
+              <div className="scrollx">
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 40 }}>
+                        <input type="checkbox" checked={allChecked} onChange={(e) => setSelected(e.target.checked ? visible.map((o) => o.id) : [])} onClick={(e) => e.stopPropagation()} />
+                      </th>
+                      <Th label="Дата" k="date" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <Th label="Покупатель" k="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <th className="only-wide">Заказ</th>
+                      <Th label="Сумма" k="amount" right sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <Th label="Оплачено" k="paid" right sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <Th label="Остаток" k="left" right sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <Th label="Доставка" k="dlvCost" right sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                      <th>Статус</th>
+                      <th style={{ width: 80 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.map((o) => (
+                      <tr key={o.id} onClick={() => setDrawerId(o.id)}>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <input type="checkbox" checked={selected.includes(o.id)} onChange={(e) => {
+                            if (e.target.checked) setSelected([...selected, o.id]);
+                            else setSelected(selected.filter((id) => id !== o.id));
+                          }} />
+                        </td>
+                        <td className="num muted" style={{ whiteSpace: "nowrap" }}>{fmtDate(o.date)}</td>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{o.name}</div>
+                          {o.note && <div className="dimtxt trunc" style={{ fontSize: 11, maxWidth: 200 }}>{o.note}</div>}
+                        </td>
+                        <td className="only-wide muted trunc" style={{ maxWidth: 200 }}>{o.item || "—"}</td>
+                        <td className="num right" style={{ fontWeight: 600 }}>{money(o.amount)}</td>
+                        <td className="num right" style={{ color: "var(--cash)" }}>{money(o.paid)}</td>
+                        <td className="num right" style={{ color: o.amount - o.paid > 0 ? "var(--debt)" : "var(--dim)" }}>{money(o.amount - o.paid)}</td>
+                        <td className="num right dimtxt">{o.dlv === "none" ? "—" : money(o.dlvCost)}</td>
+                        <td><StatusPill status={o.status} /></td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <div className="row" style={{ gap: 4, flexWrap: "nowrap", justifyContent: "flex-end" }}>
+                            <button className="btn btn-ghost btn-ico" onClick={() => startEditOrder(o)} aria-label="Редактировать"><Icon name="pencil" size={13} /></button>
+                            <button className="btn btn-ghost btn-ico" onClick={() => removeOrders([o])} aria-label="Удалить"><Icon name="trash" size={13} /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={4} className="only-wide right muted" style={{ paddingRight: 12 }}>Итого по видимым:</td>
+                      <td colSpan={3} className="only-narrow right muted" style={{ paddingRight: 12 }}>Итого:</td>
+                      <td className="num right">{money(totals.amount)}</td>
+                      <td className="num right" style={{ color: "var(--cash)" }}>{money(totals.paid)}</td>
+                      <td className="num right" style={{ color: totals.left > 0 ? "var(--debt)" : "var(--dim)" }}>{money(totals.left)}</td>
+                      <td className="num right dimtxt">{money(totals.dlv)}</td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+            {selected.length > 0 && (
+              <div className="popin" style={{ position: "absolute", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "var(--ink-600)", border: "1px solid var(--line)", padding: "8px 16px", borderRadius: 999, display: "flex", gap: 12, boxShadow: "0 10px 30px rgba(0,0,0,.5)", zIndex: 10 }}>
+                <span style={{ fontSize: 13, display: "flex", alignItems: "center" }}>Выбрано: <b style={{ marginLeft: 4 }}>{selected.length}</b></span>
+                <button className="btn btn-primary btn-sm" onClick={bulkMarkPaid}><Icon name="check" size={13} />Оплачено</button>
+                <button className="btn btn-danger btn-sm" onClick={() => removeOrders(monthOrders.filter((o) => selected.includes(o.id)))}><Icon name="trash" size={13} />Удалить</button>
+                <button className="btn btn-ghost btn-ico btn-sm" onClick={() => setSelected([])}><Icon name="close" size={13} /></button>
+              </div>
+            )}
+          </section>
+
+          <section className="panel rise" style={{ overflow: "hidden" }}>
+            <div className="sect">
+              <h3>Расходы</h3>
+              <span className="tag">{monthExpenses.length}</span>
+              <div className="spacer row">
+                <button className="btn btn-ghost" onClick={() => { setExpenseDraft(emptyExpenseDraft(defaultDateFor(period))); setEditingExpense("new"); }}>
+                  <Icon name="plus" />Добавить расход
+                </button>
+              </div>
+            </div>
+            {editingExpense && (
+              <form className="row popin" style={{ padding: 16, borderBottom: "1px solid var(--line)", background: "rgba(26,22,20,.55)", gap: 12 }} onSubmit={submitExpense}>
+                <input type="date" required className="fld" style={{ width: "auto" }} value={expenseDraft.date} onChange={(e) => setExpenseDraft({ ...expenseDraft, date: e.target.value })} />
+                <input required autoFocus className="fld" style={{ flex: 1, minWidth: 200 }} placeholder="На что потрачено" value={expenseDraft.title} onChange={(e) => setExpenseDraft({ ...expenseDraft, title: e.target.value })} />
+                <select className="fld" style={{ width: "auto" }} value={expenseDraft.cat} onChange={(e) => setExpenseDraft({ ...expenseDraft, cat: e.target.value })}>
+                  <option value="ads">Реклама</option><option value="purchase">Закупка</option><option value="other">Другое</option>
+                </select>
+                <input inputMode="decimal" required className="fld num" style={{ width: 120 }} placeholder="Сумма" value={expenseDraft.amount} onChange={(e) => setExpenseDraft({ ...expenseDraft, amount: e.target.value })} />
+                <button className="btn btn-primary" type="submit"><Icon name="check" />{editingExpense === "new" ? "Добавить" : "Сохранить"}</button>
+                <button className="btn btn-ghost" type="button" onClick={() => setEditingExpense(null)}>Отмена</button>
+              </form>
+            )}
+            <div className="scrollx">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>Дата</th>
+                    <th>На что</th>
+                    <th>Категория</th>
+                    <th className="right">Сумма</th>
+                    <th style={{ width: 80 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...monthExpenses].sort((a,b) => a.date > b.date ? -1 : 1).map((e) => (
+                    <tr key={e.id}>
+                      <td className="num muted">{fmtDate(e.date)}</td>
+                      <td style={{ fontWeight: 600 }}>{e.title}</td>
+                      <td><span className="badge" style={{ background: CATEGORY_COLOR[e.cat] + "22", color: CATEGORY_COLOR[e.cat] }}>{CATEGORY[e.cat]}</span></td>
+                      <td className="num right" style={{ color: "var(--debt)" }}>− {money(e.amount)}</td>
+                      <td>
+                        <div className="row" style={{ gap: 4, flexWrap: "nowrap", justifyContent: "flex-end" }}>
+                          <button className="btn btn-ghost btn-ico" onClick={() => { setEditingExpense(e.id); setExpenseDraft({ date: e.date, title: e.title, cat: e.cat, amount: fromCents(e.amount) }); }} aria-label="Редактировать"><Icon name="pencil" size={13} /></button>
+                          <button className="btn btn-ghost btn-ico" onClick={() => removeExpense(e)} aria-label="Удалить"><Icon name="trash" size={13} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {monthExpenses.length === 0 && (
+                    <tr><td colSpan={5} className="muted" style={{ textAlign: "center", padding: 32 }}>В этом месяце расходов нет.</td></tr>
+                  )}
+                </tbody>
+                {monthExpenses.length > 0 && (
+                  <tfoot>
+                    <tr>
+                      <td colSpan={3} className="right muted">Итого расходов:</td>
+                      <td className="num right" style={{ color: "var(--debt)" }}>− {money(stats.expenses)}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </section>
+        </main>
+      </div>
+
+      {reportOpen && (
+        <div className="modal-wrap no-print">
+          <div className="panel modal popin">
+            <div className="sect" style={{ padding: "0 0 16px", borderBottom: 0 }}>
+              <h3>Отчёт за {monthLabel(period)}</h3>
+              <div className="spacer row">
+                <button className="btn btn-ghost" onClick={() => downloadSvgAsPng(reportSvg, "otchet-" + period + ".png", 2)}><Icon name="download" />Скачать PNG</button>
+                <button className="btn btn-ghost" onClick={() => window.print()}><Icon name="print" />Печать</button>
+                <button className="btn btn-ghost btn-ico" onClick={() => setReportOpen(false)}><Icon name="close" /></button>
+              </div>
+            </div>
+            <div className="print-sheet" style={{ background: "#f6efe2", borderRadius: 8, overflow: "hidden", border: "1px solid #ddd0b6" }} dangerouslySetInnerHTML={{ __html: reportSvg }} />
+          </div>
+        </div>
+      )}
+
+      {shareOpen && (
+        <div className="modal-wrap no-print">
+          <div className="panel modal popin" style={{ maxWidth: 600 }}>
+            <div className="sect" style={{ padding: "0 0 16px", borderBottom: 0 }}>
+              <h3>Общий доступ и резервные копии</h3>
+              <button className="spacer btn btn-ghost btn-ico" onClick={() => setShareOpen(false)}><Icon name="close" /></button>
+            </div>
+            <div style={{ display: "grid", gap: 16 }}>
+              <div className="panel-flush" style={{ padding: 16 }}>
+                <h4 style={{ marginBottom: 8 }}>Ссылка-снимок</h4>
+                <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>Создаёт ссылку с текущими данными. Передайте её партнёру, чтобы он увидел вашу таблицу.</p>
+                <button className="btn btn-primary" onClick={makeSnapshotLink}>Создать ссылку</button>
+                {snapshotUrl && (
+                  <div className="row" style={{ marginTop: 12 }}>
+                    <input className="fld" readOnly value={snapshotUrl} onFocus={(e) => e.target.select()} />
+                    <button className="btn btn-ghost" onClick={() => copyText(snapshotUrl, "Ссылка скопирована")}><Icon name="copy" />Копировать</button>
+                  </div>
+                )}
+              </div>
+              <div className="panel-flush" style={{ padding: 16 }}>
+                <h4 style={{ marginBottom: 8 }}>Синхронизация через облако (JSONBin)</h4>
+                <p className="muted" style={{ fontSize: 13, marginBottom: 12 }}>Включите, чтобы данные обновлялись на всех устройствах автоматически.</p>
+                <div className="row">
+                  <input type="checkbox" id="cloudOn" checked={cloud.on} onChange={(e) => setCloud({ ...cloud, on: e.target.checked })} />
+                  <label htmlFor="cloudOn" style={{ cursor: "pointer", fontSize: 14 }}>Включить облако</label>
+                </div>
+                {cloud.on && (
+                  <div className="stack" style={{ gap: 8, marginTop: 12 }}>
+                    <Field label="URL бинокля (GET)"><input className="fld" value={cloud.url} onChange={(e) => setCloud({ ...cloud, url: e.target.value })} placeholder="https://api.jsonbin.io/v3/b/..." /></Field>
+                    <Field label="API Key (X-Master-Key)"><input className="fld" type="password" value={cloud.key} onChange={(e) => setCloud({ ...cloud, key: e.target.value })} /></Field>
+                    <button className="btn btn-ghost btn-sm" onClick={() => doSync(false)}>Синхронизировать сейчас</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {snapshot && (
+        <div className="modal-wrap no-print">
+          <div className="panel modal popin" style={{ maxWidth: 500, textAlign: "center" }}>
+            <h3 style={{ marginBottom: 12 }}>Получена ссылка-снимок</h3>
+            <p className="muted" style={{ marginBottom: 20 }}>В ссылке содержатся данные таблицы. Вы можете загрузить их к себе или объединить с текущими.</p>
+            <div className="row" style={{ justifyContent: "center" }}>
+              <button className="btn btn-primary" onClick={() => { setState(snapshot); setSnapshot(null); toast("Данные из ссылки загружены"); }}>Заменить мои данные</button>
+              <button className="btn btn-ghost" onClick={() => { setState((s) => mergeStates(s, snapshot)); setSnapshot(null); toast("Данные объединены"); }}>Объединить</button>
+              <button className="btn btn-ghost" onClick={() => setSnapshot(null)}>Отмена</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {drawerOrder && (
+        <div className="drawer-wrap no-print">
+          <button className="scrim" onClick={() => setDrawerId(null)} aria-label="Закрыть" />
+          <div className="drawer slidein">
+            <div className="row" style={{ justifyContent: "space-between", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20 }}>Заказ</h3>
+              <button className="btn btn-ghost btn-ico" onClick={() => setDrawerId(null)}><Icon name="close" /></button>
+            </div>
+            <div className="stack" style={{ gap: 16 }}>
+              <div>
+                <div className="lbl">Покупатель</div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>{drawerOrder.name}</div>
+              </div>
+              {drawerOrder.item && (
+                <div>
+                  <div className="lbl">Состав заказа</div>
+                  <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.5 }}>{drawerOrder.item}</div>
+                </div>
+              )}
+              <div className="row" style={{ gap: 16 }}>
+                <div><div className="lbl">Сумма</div><div className="num" style={{ fontSize: 18 }}>{money(drawerOrder.amount)}</div></div>
+                <div><div className="lbl">Оплачено</div><div className="num" style={{ fontSize: 18, color: "var(--cash)" }}>{money(drawerOrder.paid)}</div></div>
+                <div><div className="lbl">Остаток</div><div className="num" style={{ fontSize: 18, color: "var(--debt)" }}>{money(drawerOrder.amount - drawerOrder.paid)}</div></div>
+              </div>
+              <div className="row" style={{ gap: 16 }}>
+                <div><div className="lbl">Статус</div><StatusPill status={drawerOrder.status} /></div>
+                <div><div className="lbl">Доставка</div><div>{DELIVERY[drawerOrder.dlv]} {drawerOrder.dlvCost > 0 ? "(" + money(drawerOrder.dlvCost) + ")" : ""}</div></div>
+              </div>
+              {drawerOrder.note && (
+                <div>
+                  <div className="lbl">Примечание</div>
+                  <div className="panel-flush" style={{ padding: 12, whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.5 }}>{drawerOrder.note}</div>
+                </div>
+              )}
+              <div className="row" style={{ marginTop: 16 }}>
+                <button className="btn btn-ghost" onClick={() => startEditOrder(drawerOrder)}><Icon name="pencil" />Редактировать</button>
+                <button className="btn btn-ghost" style={{ color: "var(--debt)" }} onClick={() => removeOrders([drawerOrder])}><Icon name="trash" />Удалить</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Toasts items={toasts} onClose={dropToast} />
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+</script>
+</body>
+</html>
